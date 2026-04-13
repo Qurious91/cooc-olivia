@@ -41,14 +41,12 @@ export default function Modal({
         } p-6 shadow-xl flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
-        {(title || onClose) && (
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-text-1">{title}</h2>
-            <button onClick={onClose} className="p-1 text-text-5" aria-label="Close">
-              <X size={20} />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-text-1">{title}</h2>
+          <button onClick={onClose} className="p-1 text-text-5" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
         <div className="flex-1 min-h-0">{children}</div>
       </div>
     </div>
