@@ -4,8 +4,6 @@ import { ArrowLeft, Send } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import BottomNav from "../bottom-nav";
-import SiteHeader from "../site-header";
 import {
   type ChatMessage,
   type ChatRoom,
@@ -35,6 +33,17 @@ export default function ChatContent() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [room]);
 
+  const scrollToBottom = () => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  };
+
+  const onInputFocus = () => {
+    setTimeout(scrollToBottom, 300);
+  };
+
   const send = () => {
     if (!room) return;
     const text = draft.trim();
@@ -52,8 +61,7 @@ export default function ChatContent() {
 
   if (!id || !room) {
     return (
-      <div className="flex flex-col h-screen bg-white">
-        <SiteHeader />
+      <div className="flex flex-col h-[100dvh] bg-white">
         <main className="flex-1 flex items-center justify-center px-6 text-center">
           <div>
             <p className="text-sm text-text-5">대화를 찾을 수 없어요.</p>
@@ -65,32 +73,28 @@ export default function ChatContent() {
             </Link>
           </div>
         </main>
-        <div className="h-16 shrink-0 md:hidden" />
-        <BottomNav />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      <SiteHeader />
-
+    <div className="flex flex-col h-[100dvh] bg-white">
       <header className="flex items-center gap-2 px-3 py-2.5 border-b border-black/10 shrink-0">
         <Link
           href="/messages"
           aria-label="뒤로"
-          className="p-1.5 rounded-full hover:bg-black/5"
+          className="p-1.5 rounded-full hover:bg-black/5 text-text-1"
         >
           <ArrowLeft size={20} />
         </Link>
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-8 h-8 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] text-xs flex items-center justify-center">
+          <span className="w-9 h-9 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] text-sm flex items-center justify-center">
             {room.withName[0]}
           </span>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-text-1 truncate">{room.withName}</div>
+          <div className="min-w-0 flex items-baseline gap-2">
+            <div className="text-base font-semibold text-text-1 truncate">{room.withName}</div>
             {room.withRole && (
-              <div className="text-[11px] text-text-5 truncate">{room.withRole}</div>
+              <div className="text-xs text-text-5 truncate">{room.withRole}</div>
             )}
           </div>
         </div>
@@ -98,7 +102,7 @@ export default function ChatContent() {
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 max-w-xl w-full mx-auto"
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-xl w-full mx-auto"
       >
         {room.messages.map((m) => {
           if (m.from === "system") {
@@ -118,7 +122,7 @@ export default function ChatContent() {
             >
               <div className={`max-w-[78%] ${mine ? "text-right" : "text-left"}`}>
                 <div
-                  className={`inline-block px-3 py-2 rounded-2xl text-sm ${
+                  className={`inline-block px-3 py-2 rounded-2xl text-base ${
                     mine
                       ? "bg-[#999f54] text-[#F2F0DC] rounded-br-sm"
                       : "bg-black/5 text-text-1 rounded-bl-sm"
@@ -143,8 +147,9 @@ export default function ChatContent() {
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onFocus={onInputFocus}
           placeholder="메시지 입력"
-          className="flex-1 px-3 py-2 rounded-full bg-black/5 text-sm text-text-1 placeholder:text-text-6 focus:outline-none"
+          className="flex-1 px-3 py-2 rounded-full bg-black/5 text-base text-text-1 placeholder:text-text-6 focus:outline-none"
         />
         <button
           type="submit"
@@ -155,10 +160,6 @@ export default function ChatContent() {
           <Send size={16} />
         </button>
       </form>
-
-      <div className="h-16 shrink-0 md:hidden" />
-
-      <BottomNav />
     </div>
   );
 }

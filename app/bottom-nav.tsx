@@ -2,11 +2,20 @@
 
 import { Home as HomeIcon, Search, Plus, MessageCircle, Briefcase, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { createCoocRequestChat } from "./data/chats";
 import { PROJECT_TYPES } from "./data/project-types";
 
 export default function BottomNav() {
+  const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
+
+  const requestCooc = () => {
+    const room = createCoocRequestChat();
+    setCreateOpen(false);
+    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
+  };
 
   return (
     <>
@@ -19,7 +28,7 @@ export default function BottomNav() {
           </span>
         </button>
         <Link href="/messages" aria-label="Messages" className="p-2"><MessageCircle size={24} /></Link>
-        <Link href="/works" aria-label="My works" className="p-2"><Briefcase size={24} /></Link>
+        <Link href="/projects" aria-label="My projects" className="p-2"><Briefcase size={24} /></Link>
       </nav>
 
       {createOpen && (
@@ -60,6 +69,13 @@ export default function BottomNav() {
                     >
                       {content}
                     </Link>
+                  );
+                }
+                if (title === "COOC에 요청하기") {
+                  return (
+                    <button key={title} onClick={requestCooc} className={baseClass}>
+                      {content}
+                    </button>
                   );
                 }
                 return (

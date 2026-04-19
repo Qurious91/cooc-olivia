@@ -3,9 +3,7 @@
 import { MessageCircle, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import BottomNav from "../bottom-nav";
-import SiteHeader from "../site-header";
-import { type ChatRoom, deleteChat, loadChats } from "../data/chats";
+import { type ChatRoom, deleteChat, loadChats } from "../../data/chats";
 
 function previewOf(room: ChatRoom) {
   const nonSystem = [...room.messages].reverse().find((m) => m.from !== "system");
@@ -36,18 +34,10 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      <SiteHeader />
-
-      <main className="flex-1 px-0 pt-4 pb-24 md:pb-8 max-w-2xl w-full mx-auto">
-        <div className="px-4 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-text-1">메시지</h1>
-          <Link
-            href="/works"
-            className="shrink-0 text-xs font-medium text-[#4a4d22] underline underline-offset-2"
-          >
-            내 제안 보러가기&gt;
-          </Link>
+    <main className="flex-1 px-0 pt-6 pb-24 md:pb-8 max-w-2xl w-full mx-auto">
+        <div className="px-4">
+          <h1 className="text-xl font-bold text-text-1">메시지</h1>
+          <p className="text-sm text-text-5 mt-1">수락한 참여자와 나눈 대화</p>
         </div>
 
         {rooms.length === 0 ? (
@@ -58,14 +48,14 @@ export default function MessagesPage() {
               내가 올린 제안에서 참여자를 수락하면 대화가 시작돼요.
             </p>
             <Link
-              href="/works"
+              href="/projects"
               className="mt-4 inline-flex items-center gap-1 px-3 py-2 rounded-full bg-[#999f54] text-[#F2F0DC] text-xs font-semibold"
             >
               내 제안 보러가기
             </Link>
           </div>
         ) : (
-          <ul className="mt-2">
+          <ul className="mt-2 divide-y divide-black/5">
             {rooms.map((r) => (
               <li key={r.id} className="group relative">
                 <Link
@@ -81,7 +71,7 @@ export default function MessagesPage() {
                         {r.withName}
                         {r.withRole && (
                           <span className="ml-1.5 text-[11px] font-normal text-text-6">
-                            · {r.withRole}
+                            {r.withRole}
                           </span>
                         )}
                       </div>
@@ -108,9 +98,6 @@ export default function MessagesPage() {
             ))}
           </ul>
         )}
-      </main>
-
-      <BottomNav />
-    </div>
+    </main>
   );
 }
