@@ -11,14 +11,14 @@ export default function BottomNav() {
   return (
     <>
       <nav className="md:hidden fixed bottom-0 inset-x-0 h-16 bg-white border-t border-black/10 flex items-center justify-around text-text-6 z-30">
-        <Link href="/" aria-label="Home" className="p-2"><HomeIcon size={24} /></Link>
+        <Link href="/home" aria-label="Home" className="p-2"><HomeIcon size={24} /></Link>
         <Link href="/wip" aria-label="Search" className="p-2"><Search size={24} /></Link>
         <button aria-label="Create" className="p-2" onClick={() => setCreateOpen(true)}>
           <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black text-white">
             <Plus size={22} />
           </span>
         </button>
-        <Link href="/wip" aria-label="Messages" className="p-2"><MessageCircle size={24} /></Link>
+        <Link href="/messages" aria-label="Messages" className="p-2"><MessageCircle size={24} /></Link>
         <Link href="/works" aria-label="My works" className="p-2"><Briefcase size={24} /></Link>
       </nav>
 
@@ -38,18 +38,36 @@ export default function BottomNav() {
               </button>
             </div>
             <div className="flex flex-col gap-3">
-              {PROJECT_TYPES.map(({ Icon, title, desc }) => (
-                <button
-                  key={title}
-                  className="text-left flex items-center gap-3 p-3 rounded-xl border border-black/10 hover:bg-[#999f54]/10"
-                >
-                  <Icon size={20} className="text-text-6 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-text-6">{title}</div>
-                    {desc && <p className="text-[11px] text-text-6 mt-0.5">{desc}</p>}
-                  </div>
-                </button>
-              ))}
+              {PROJECT_TYPES.map(({ Icon, title, desc }) => {
+                const content = (
+                  <>
+                    <Icon size={20} className="text-text-6 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-text-6">{title}</div>
+                      {desc && <p className="text-[11px] text-text-6 mt-0.5">{desc}</p>}
+                    </div>
+                  </>
+                );
+                const baseClass =
+                  "text-left flex items-center gap-3 p-3 rounded-xl border border-black/10 hover:bg-[#999f54]/10";
+                if (title === "같이 하고 싶어요") {
+                  return (
+                    <Link
+                      key={title}
+                      href="/collab"
+                      onClick={() => setCreateOpen(false)}
+                      className={baseClass}
+                    >
+                      {content}
+                    </Link>
+                  );
+                }
+                return (
+                  <button key={title} className={baseClass}>
+                    {content}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

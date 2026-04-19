@@ -1,147 +1,107 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import BottomNav from "./bottom-nav";
-import Modal from "./modal";
-import SiteHeader from "./site-header";
 import Splash from "./splash";
-import { HOME_CATEGORIES, CREATOR_CATEGORIES } from "./data/categories";
 
-const TABS = ["메인", "F&B 크리에이터", "브랜드"] as const;
+export default function Login() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-export default function Home() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("메인");
-  const [selected, setSelected] = useState<string | null>(null);
+  const goHome = () => router.push("/home");
+
   return (
     <>
       <Splash />
-      <div className="min-h-screen bg-white text-text-4">
-        <SiteHeader />
+      <div className="min-h-screen bg-white text-text-4 flex flex-col">
+        <main className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-sm">
+            <div className="mb-8 text-center">
+              <h1 className="text-3xl font-bold tracking-tight text-text-1">COOC</h1>
+              <p className="mt-2 text-sm text-text-5">CO-CREATION WITH OUR CHEFS</p>
+            </div>
 
-        <div className="flex gap-2 px-4 py-3 border-b border-black/5 overflow-x-auto">
-          {TABS.map((k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap border ${
-                tab === k
-                  ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
-                  : "bg-white text-text-4 border-black/15"
-              }`}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                goHome();
+              }}
+              className="space-y-4"
             >
-              {k}
-            </button>
-          ))}
-        </div>
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">이메일</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-black/15 text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">비밀번호</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-black/15 text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
+                  placeholder="8자 이상"
+                />
+              </div>
 
-        <main className="px-4 pt-3 pb-24 md:pb-8">
-          {tab === "메인" ? (
-            <div className="space-y-3">
-              <section
-                className="relative rounded-xl shadow-sm border border-black/5 overflow-hidden bg-cover bg-center min-h-72"
-                style={{
-                  backgroundImage:
-                    "url('https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=1600&q=80')",
-                }}
+              <button
+                type="submit"
+                onClick={goHome}
+                className="w-full mt-2 py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
               >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
-                <div className="relative p-8 pt-40 text-white">
-                  <span className="inline-block text-xs tracking-tight px-2.5 py-1 rounded-full border border-white/60">
-                    F&B 협업 전문 플랫폼
-                  </span>
-                  <h2 className="mt-3 text-3xl font-bold">Cook, Connect, Collab.</h2>
-                  <p className="mt-2 opacity-90">요리하고, 연결하고, 함께 만든다.</p>
-                </div>
-              </section>
+                로그인
+              </button>
+            </form>
 
-              <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5">
-                <h3 className="text-base font-semibold text-text-1 mb-2">어떤 협업을 원하시나요?</h3>
-                <div className="grid grid-cols-5 gap-4">
-                  {HOME_CATEGORIES.map(({ Icon, label }) => (
-                    <button
-                      key={label}
-                      onClick={() => setSelected(label)}
-                      className="flex flex-col items-center justify-center gap-2 py-3 text-text-1 group"
-                    >
-                      <span className="flex items-center justify-center w-14 h-14 rounded-full group-hover:bg-[#999f54]/15">
-                        <Icon size={28} />
-                      </span>
-                      <span className="text-xs">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5">
-                <div className="flex items-end justify-between mb-3">
-                  <h3 className="text-base font-semibold text-text-1">진행중인 협업</h3>
-                  <button className="text-xs text-text-5">전체보기</button>
-                </div>
-                <ul className="divide-y divide-black/5">
-                  {[
-                    { a: "박셰프", b: "이파티시에", title: "시즈널 디저트 코스 공동개발", tag: "진행중" },
-                    { a: "김바리스타", b: "최소믈리에", title: "와인 페어링 시그니처 음료", tag: "모집중" },
-                    { a: "정셰프", b: "한브랜드", title: "팝업 다이닝 3일간 콜라보", tag: "예정" },
-                    { a: "오베이커", b: "유셰프", title: "브런치 메뉴 신규 라인업", tag: "마감임박" },
-                  ].map((c) => (
-                    <li key={c.title} className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex -space-x-2 shrink-0">
-                          <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] text-xs flex items-center justify-center border-2 border-white">
-                            {c.a[0]}
-                          </span>
-                          <span className="w-8 h-8 rounded-full bg-zinc-700 text-white text-xs flex items-center justify-center border-2 border-white">
-                            {c.b[0]}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-text-1 truncate">{c.title}</div>
-                          <div className="text-xs text-text-5 truncate">{c.a} × {c.b}</div>
-                        </div>
-                      </div>
-                      <span className="ml-3 shrink-0 text-xs px-2.5 py-1 rounded-full bg-[#999f54]/15 text-[#4a4d22]">
-                        {c.tag}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+            <div className="mt-6 text-center text-xs text-text-5">
+              아직 계정이 없으신가요?{" "}
+              <Link href="/home" className="font-semibold text-[#999f54] hover:underline">
+                회원가입
+              </Link>
             </div>
-          ) : tab === "F&B 크리에이터" ? (
-          <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5">
-            <div className="grid grid-cols-4 gap-4">
-              {CREATOR_CATEGORIES.map(({ Icon, label }) => (
-                <button
-                  key={label}
-                  className="flex flex-col items-center justify-center gap-2 py-3 text-text-1 group"
-                >
-                  <span className="flex items-center justify-center w-14 h-14 rounded-full group-hover:bg-[#999f54]/15">
-                    <Icon size={28} />
-                  </span>
-                  <span className="text-xs">{label}</span>
-                </button>
-              ))}
+
+            <div className="mt-6 flex items-center gap-3 text-[11px] text-text-6">
+              <span className="h-px flex-1 bg-black/10" />
+              또는
+              <span className="h-px flex-1 bg-black/10" />
             </div>
-          </section>
-          ) : (
-            <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5 min-h-40" />
-          )}
-        </main>
 
-        <BottomNav />
+            <div className="mt-4 space-y-2.5">
+              <button
+                type="button"
+                onClick={goHome}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-black/15 bg-white text-sm font-medium text-text-1 hover:bg-black/[.03]"
+              >
+                <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                </svg>
+                Google로 로그인
+              </button>
 
-        <Modal
-          open={!!selected}
-          onClose={() => setSelected(null)}
-          title={selected ?? ""}
-          size="xl"
-          fullHeight
-        >
-          <div className="h-full flex items-center justify-center text-text-5">
-            상세 내용 준비중
+              <button
+                type="button"
+                onClick={goHome}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#FEE500] text-sm font-medium text-[#191600] hover:opacity-90"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#191600" d="M12 3C6.48 3 2 6.58 2 11c0 2.86 1.87 5.37 4.7 6.78-.21.75-.76 2.75-.87 3.18-.14.54.2.53.41.39.17-.11 2.66-1.81 3.73-2.54.65.09 1.33.14 2.03.14 5.52 0 10-3.58 10-8S17.52 3 12 3z"/>
+                </svg>
+                카카오로 로그인
+              </button>
+            </div>
           </div>
-        </Modal>
+        </main>
       </div>
     </>
   );
