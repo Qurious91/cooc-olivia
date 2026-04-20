@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, ChevronDown, Heart, MapPin, Sparkles, Trash2, UserPlus } from "lucide-react";
+import { Check, ChevronDown, Heart, Sparkles, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Modal from "../../modal";
 import { createCoocApplyChat } from "../../data/chats";
 import { COLLAB_FEED, type CollabListing } from "../../data/collab-feed";
 import { type Collab, type CollabKind, deleteCollab, loadCollabs } from "../../data/collabs";
@@ -32,6 +33,7 @@ export default function LikedList() {
   const [mine, setMine] = useState<Collab[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [pendingDelegate, setPendingDelegate] = useState<LikedItem | null>(null);
 
   useEffect(() => {
     try {
@@ -153,7 +155,8 @@ export default function LikedList() {
   }
 
   return (
-    <ul className="space-y-3">
+    <>
+      <ul className="space-y-3">
       {items.map((it) => (
         <li
           key={it.id}
@@ -162,16 +165,14 @@ export default function LikedList() {
           }`}
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[11px] text-text-5 flex items-center gap-1.5">
-                {it.host}
-                {it.mine && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#999f54] text-[#F2F0DC]">
-                    내가 올림
-                  </span>
-                )}
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-text-5 flex items-center gap-1.5">
+                <span className="truncate">{it.host}</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 text-[11px] text-[#4a4d22]">
+                  {it.kind}
+                </span>
               </div>
-              <div className="mt-0.5 text-sm font-semibold text-text-1 truncate">
+              <div className="mt-2 text-lg font-semibold text-text-1 truncate">
                 {it.title}
               </div>
             </div>
@@ -185,20 +186,12 @@ export default function LikedList() {
             </button>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-5">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 text-[#4a4d22]">
-              {it.status}
-            </span>
-            <span>{it.meta}</span>
-            <span className="inline-flex items-center gap-0.5">
-              <MapPin size={11} />
-              {it.location}
-            </span>
+          <div className="mt-2 flex justify-end">
             <button
               onClick={() => toggle(it.id)}
               aria-expanded={expanded.has(it.id)}
               aria-label={expanded.has(it.id) ? "접기" : "자세히"}
-              className="ml-auto inline-flex items-center gap-0.5 text-[#4a4d22]"
+              className="inline-flex items-center gap-0.5 text-[11px] text-[#4a4d22]"
             >
               자세히
               <ChevronDown
@@ -209,7 +202,7 @@ export default function LikedList() {
           </div>
 
           {expanded.has(it.id) && (
-            <div className="mt-3 pt-3 border-t border-black/5 space-y-2">
+            <div className="mt-3 pt-3 border-t border-black/5 space-y-3">
               {it.mine ? (
                 <>
                   {it.desc ? (
@@ -219,10 +212,6 @@ export default function LikedList() {
                   ) : (
                     <p className="text-xs text-text-6">아직 설명이 비어 있어요.</p>
                   )}
-                  <dl className="grid grid-cols-1 gap-1.5 text-[11px] text-text-5">
-                    <DetailRow label="기간" value={it.period || "협의"} />
-                    <DetailRow label="파트너" value={it.partner || "미정"} />
-                  </dl>
                   <div className="flex justify-end">
                     <button
                       onClick={() => onDelete(it.id)}
@@ -240,11 +229,6 @@ export default function LikedList() {
                       {it.detail}
                     </p>
                   )}
-                  <dl className="grid grid-cols-1 gap-1.5 text-[11px] text-text-5">
-                    {it.budget && <DetailRow label="예산" value={it.budget} />}
-                    {it.capacity && <DetailRow label="규모" value={it.capacity} />}
-                    {it.contact && <DetailRow label="연락" value={it.contact} />}
-                  </dl>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
                       onClick={() => toggleApply(it.id)}
@@ -268,7 +252,7 @@ export default function LikedList() {
                       )}
                     </button>
                     <button
-                      onClick={() => delegateApply(it)}
+                      onClick={() => setPendingDelegate(it)}
                       className="inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] border border-[#999f54]/30 font-semibold hover:bg-[#999f54]/15"
                     >
                       <Sparkles size={11} />
@@ -281,15 +265,39 @@ export default function LikedList() {
           )}
         </li>
       ))}
-    </ul>
-  );
-}
+      </ul>
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="w-10 shrink-0 text-text-6">{label}</span>
-      <span className="text-text-4">{value}</span>
-    </div>
+      <Modal
+        open={pendingDelegate !== null}
+        onClose={() => setPendingDelegate(null)}
+        title="COOC에게 맡기기"
+        size="sm"
+      >
+        <div className="flex flex-col gap-5">
+          <p className="text-sm text-text-3 leading-relaxed">
+            COOC와의 채팅으로 바로 연결됩니다.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingDelegate(null)}
+              className="flex-1 py-2.5 rounded-lg border border-black/15 text-sm text-text-4"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (pendingDelegate) delegateApply(pendingDelegate);
+                setPendingDelegate(null);
+              }}
+              className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }

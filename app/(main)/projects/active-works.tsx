@@ -11,6 +11,7 @@ type Work = {
   partner: string;
   status: string;
   due: string;
+  desc: string;
   checklist: ChecklistItem[];
 };
 
@@ -21,6 +22,8 @@ const INITIAL_WORKS: Work[] = [
     partner: "이파티시에",
     status: "진행중",
     due: "2026-05-02",
+    desc:
+      "봄 시즈널 재료를 활용한 디저트 코스 3종을 함께 개발합니다. 매장 정규 메뉴로 편입하는 것을 목표로, 시식회 결과를 바탕으로 원가와 플레이팅을 다듬습니다.",
     checklist: [
       { id: "c1", label: "컨셉/테마 확정", done: true },
       { id: "c2", label: "1차 레시피 개발", done: true },
@@ -35,6 +38,8 @@ const INITIAL_WORKS: Work[] = [
     partner: "최소믈리에",
     status: "리뷰",
     due: "2026-04-28",
+    desc:
+      "시그니처 코스에 맞는 와인 페어링을 3단계로 구성합니다. 블라인드 테이스팅을 거쳐 테이블당 제안 리스트를 확정하는 단계입니다.",
     checklist: [
       { id: "c1", label: "페어링 방향성 논의", done: true },
       { id: "c2", label: "후보 와인 리스트업", done: true },
@@ -48,6 +53,8 @@ const INITIAL_WORKS: Work[] = [
     partner: "한브랜드",
     status: "기획",
     due: "2026-06-10",
+    desc:
+      "한브랜드 쇼룸에서 3일간 운영하는 팝업 다이닝. 브랜드 시즌 캠페인과 연계해 예약제 코스로 진행하며, 현장 운영과 SNS 홍보를 함께 맡습니다.",
     checklist: [
       { id: "c1", label: "장소/일정 픽스", done: true },
       { id: "c2", label: "메뉴 구성 초안", done: false },
@@ -62,6 +69,8 @@ const INITIAL_WORKS: Work[] = [
     partner: "오베이커",
     status: "마감임박",
     due: "2026-04-20",
+    desc:
+      "오베이커의 베이커리 기반 브런치 5종 라인업. 오픈 런칭일 전까지 메뉴판 인쇄와 리허설을 마무리해야 합니다.",
     checklist: [
       { id: "c1", label: "시즈널 재료 소싱", done: true },
       { id: "c2", label: "메뉴 5종 개발", done: true },
@@ -154,7 +163,7 @@ export default function ActiveWorks() {
             </div>
 
             {open && (
-              <div className="mt-3 pt-3 border-t border-black/5">
+              <div className="mt-3 pt-3 border-t border-black/5 space-y-3">
                 <ul className="space-y-1.5">
                   {w.checklist.map((c) => (
                     <li key={c.id}>
@@ -184,6 +193,11 @@ export default function ActiveWorks() {
                     </li>
                   ))}
                 </ul>
+                {w.desc && (
+                  <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed pt-3 border-t border-black/5">
+                    {w.desc}
+                  </p>
+                )}
               </div>
             )}
           </li>

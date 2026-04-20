@@ -5,6 +5,8 @@ export type CollabKind =
   | "팝업 행사"
   | "컨설팅";
 
+export type CollabAuthorMode = "소속" | "이름" | "둘 다";
+
 export type Collab = {
   id: string;
   kind: CollabKind;
@@ -13,7 +15,19 @@ export type Collab = {
   partner: string;
   period: string;
   createdAt: number;
+  author?: CollabAuthorMode;
+  authorName?: string;
+  authorAffiliation?: string;
 };
+
+export function collabHostLabel(c: Collab): string {
+  if (c.author && (c.authorName || c.authorAffiliation)) {
+    if (c.author === "이름") return c.authorName ?? "";
+    if (c.author === "소속") return c.authorAffiliation ?? "";
+    return [c.authorAffiliation, c.authorName].filter(Boolean).join(" · ");
+  }
+  return c.partner?.trim() || "내가 올림";
+}
 
 const KEY = "cooc.collabs.v1";
 

@@ -20,41 +20,80 @@ import {
 import { useEffect, useRef, useState } from "react";
 import AvatarCropper from "./avatar-cropper";
 import PhotoUpload from "./photo-upload";
+import Modal from "../../modal";
 
-type Position = { title: string; org: string };
 type Career = { period: string; summary: string; detail: string };
 type Menu = { partner: string; title: string; when: string };
 type Award = { period: string; title: string };
 type Contact = { kind: "ig" | "web" | "mail"; value: string };
 type Stat = { n: string; l: string };
 
+type SectionKey =
+  | "career"
+  | "awards"
+  | "stats"
+  | "menus"
+  | "contacts"
+  | "photos";
+
 type ProfileData = {
   name: string;
   affiliation: string;
+  position: string;
   region: string;
-  tagline: string;
   avatar: string;
   keywords: string[];
-  current: Position[];
   career: Career[];
   stats: Stat[];
   menus: Menu[];
   awards: Award[];
   contacts: Contact[];
+  visible: SectionKey[];
 };
 
-const STORAGE_KEY = "cooc.profile.data.v10";
+const SECTION_ORDER: SectionKey[] = [
+  "career",
+  "awards",
+  "stats",
+  "menus",
+  "contacts",
+  "photos",
+];
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+  career: "경력",
+  awards: "수상 내역",
+  stats: "학력",
+  menus: "시그니처 메뉴",
+  contacts: "관심분야",
+  photos: "사진",
+};
+
+const SECTION_HINTS: Record<SectionKey, string> = {
+  career: "이전 경력",
+  awards: "수상 이력",
+  stats: "학력·자격",
+  menus: "대표 메뉴",
+  contacts: "연락처·관심분야",
+  photos: "포트폴리오 사진",
+};
+
+const STORAGE_KEY = "cooc.profile.data.v12";
+
+const DEMO_HEADER = {
+  name: "데이비드 마르티네즈",
+  affiliation: "엣지러너",
+  position: "리더",
+  location: "나이트시티",
+} as const;
 
 const DEFAULT_DATA: ProfileData = {
-  name: "박셰프",
-  affiliation: "Restaurant ONUL",
-  region: "서울",
-  tagline: "함께 만드는 시즈널 다이닝",
+  name: DEMO_HEADER.name,
+  affiliation: DEMO_HEADER.affiliation,
+  position: DEMO_HEADER.position,
+  region: DEMO_HEADER.location,
   avatar: "",
   keywords: ["시즈널", "한식 모던", "팝업", "협업 오픈"],
-  current: [
-    { title: "Head Chef", org: "Restaurant ONUL · 서울 한남동" },
-  ],
   career: [
     {
       period: "2020.03 ~ 2023.02",
@@ -79,6 +118,7 @@ const DEFAULT_DATA: ProfileData = {
     { period: "2023.11", title: "Rising Star" },
   ],
   contacts: [],
+  visible: ["career", "awards", "stats"],
 };
 
 const INPUT_BASE =
@@ -141,6 +181,45 @@ export default function Profile() {
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [keywordDraft, setKeywordDraft] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const isVisible = (k: SectionKey) => data.visible.includes(k);
+  const availableSections = SECTION_ORDER.filter((k) => !isVisible(k));
+
+  const addSection = (k: SectionKey) => {
+    setData((d) => {
+      if (d.visible.includes(k)) return d;
+      const next: ProfileData = { ...d, visible: [...d.visible, k] };
+      if (k === "career" && next.career.length === 0) {
+        next.career = [{ period: "", summary: "", detail: "" }];
+      } else if (k === "awards" && next.awards.length === 0) {
+        next.awards = [{ period: "", title: "" }];
+      } else if (k === "stats" && next.stats.length === 0) {
+        next.stats = [{ n: "", l: "" }];
+      } else if (k === "menus" && next.menus.length === 0) {
+        next.menus = [{ partner: "", title: "", when: "" }];
+      } else if (k === "contacts" && next.contacts.length === 0) {
+        next.contacts = [{ kind: "ig", value: "" }];
+      }
+      return next;
+    });
+    if (availableSections.length <= 1) setPickerOpen(false);
+  };
+
+  const removeSection = (k: SectionKey) => {
+    setData((d) => {
+      const next: ProfileData = {
+        ...d,
+        visible: d.visible.filter((x) => x !== k),
+      };
+      if (k === "career") next.career = [];
+      else if (k === "awards") next.awards = [];
+      else if (k === "stats") next.stats = [];
+      else if (k === "menus") next.menus = [];
+      else if (k === "contacts") next.contacts = [];
+      return next;
+    });
+  };
 
   const addKeyword = () => {
     const v = keywordDraft.trim();
@@ -159,7 +238,17 @@ export default function Profile() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const loaded = JSON.parse(raw) as Partial<ProfileData>;
-        setData({ ...DEFAULT_DATA, ...loaded });
+        const merged = { ...DEFAULT_DATA, ...loaded };
+        if (!Array.isArray(loaded.visible)) {
+          const derived: SectionKey[] = [];
+          if (merged.career.length) derived.push("career");
+          if (merged.awards.length) derived.push("awards");
+          if (merged.stats.length) derived.push("stats");
+          if (merged.menus.length) derived.push("menus");
+          if (merged.contacts.length) derived.push("contacts");
+          merged.visible = derived;
+        }
+        setData(merged);
       }
     } catch {
       // ignore
@@ -186,7 +275,7 @@ export default function Profile() {
     setPendingAvatarFile(file);
   };
 
-  const patchItem = <K extends "current" | "career" | "menus" | "awards" | "stats" | "contacts">(
+  const patchItem = <K extends "career" | "menus" | "awards" | "stats" | "contacts">(
     key: K,
     i: number,
     patch: Partial<ProfileData[K][number]>,
@@ -250,43 +339,55 @@ export default function Profile() {
               onChange={onAvatarPick}
             />
           </div>
-          <div className="min-w-0 flex-1 space-y-1">
+          <div className="min-w-0 flex-1 space-y-5">
             <TextField
               value={data.name}
               editing={editing}
               onChange={(v) => set("name", v)}
-              className="text-xl font-bold text-text-1"
+              className="text-2xl font-bold text-text-1"
             />
-            {editing ? (
-              <div className="flex items-center gap-1.5 text-sm">
-                <TextField
-                  value={data.affiliation}
-                  editing={editing}
-                  onChange={(v) => set("affiliation", v)}
-                  placeholder="소속"
-                  className="text-sm text-text-5"
-                />
-                <span className="text-text-6 shrink-0">·</span>
-                <TextField
-                  value={data.region}
-                  editing={editing}
-                  onChange={(v) => set("region", v)}
-                  placeholder="지역"
-                  className="text-sm text-text-5"
-                />
-              </div>
-            ) : (
-              <div className="text-sm text-text-5 truncate">
-                {[data.affiliation, data.region].filter(Boolean).join(" · ")}
-              </div>
-            )}
-            <TextField
-              value={data.tagline}
-              editing={editing}
-              onChange={(v) => set("tagline", v)}
-              placeholder="한줄소개"
-              className="text-xs text-text-6"
-            />
+            <div className="flex items-baseline gap-1.5 text-sm text-text-3">
+              <Briefcase size={14} className="text-[#999f54] shrink-0 self-center" />
+              {editing ? (
+                <div className="flex items-baseline gap-1 flex-1 min-w-0">
+                  <TextField
+                    value={data.affiliation}
+                    editing={editing}
+                    onChange={(v) => set("affiliation", v)}
+                    placeholder="소속"
+                    className="text-sm text-text-3 flex-1 min-w-0"
+                  />
+                  <span className="text-text-5 shrink-0">·</span>
+                  <TextField
+                    value={data.position}
+                    editing={editing}
+                    onChange={(v) => set("position", v)}
+                    placeholder="직책"
+                    className="text-sm text-text-3 flex-1 min-w-0"
+                  />
+                  <span className="text-text-6 shrink-0 text-xs">·</span>
+                  <TextField
+                    value={data.region}
+                    editing={editing}
+                    onChange={(v) => set("region", v)}
+                    placeholder="위치"
+                    className="text-xs text-text-6 flex-1 min-w-0"
+                  />
+                </div>
+              ) : (
+                <span className="truncate">
+                  <span className="text-text-3">
+                    {[data.affiliation, data.position].filter(Boolean).join(" · ")}
+                  </span>
+                  {data.region && (
+                    <span className="text-xs text-text-6">
+                      {[data.affiliation, data.position].filter(Boolean).length > 0 && " · "}
+                      {data.region}
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
           </div>
           </div>
           {(editing || data.keywords.length > 0) && (
@@ -332,205 +433,297 @@ export default function Profile() {
           )}
         </section>
 
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <Briefcase size={16} className="text-[#999f54]" />
-            현재
-          </h2>
-          <ul className="space-y-3 text-sm">
-            {data.current.map((p, i) => (
-              <li key={i} className="space-y-1">
-                <TextField
-                  value={p.title}
-                  editing={editing}
-                  onChange={(v) => patchItem("current", i, { title: v })}
-                  placeholder="직책"
-                  className="text-text-1 block"
-                />
-                <TextField
-                  value={p.org}
-                  editing={editing}
-                  onChange={(v) => patchItem("current", i, { org: v })}
-                  placeholder="소속"
-                  className="text-xs text-text-5 block"
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
+        {editing && (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              disabled={availableSections.length === 0}
+              className="inline-flex items-center gap-1 text-xs text-text-5 px-3 py-1.5 rounded-full border border-dashed border-black/20 hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus size={12} /> 항목 추가
+            </button>
+          </div>
+        )}
 
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <ChefHat size={16} className="text-[#999f54]" />
-            경력
-          </h2>
-          <ul className="space-y-4 text-sm">
-            {data.career.map((c, i) => (
-              <li key={i} className="flex gap-3">
-                <div className="shrink-0 w-32">
-                  <TextField
-                    value={c.period}
-                    editing={editing}
-                    onChange={(v) => patchItem("career", i, { period: v })}
-                    placeholder="2020.03 ~ 2023.02"
-                    className="text-xs text-text-6 tabular-nums block"
-                  />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <TextField
-                    value={c.summary}
-                    editing={editing}
-                    onChange={(v) => patchItem("career", i, { summary: v })}
-                    placeholder="주요 내용"
-                    className="text-text-1 block"
-                  />
-                  <TextArea
-                    value={c.detail}
-                    editing={editing}
-                    onChange={(v) => patchItem("career", i, { detail: v })}
-                    className="text-xs text-text-5 leading-relaxed"
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <Medal size={16} className="text-[#999f54]" />
-            수상 내역
-          </h2>
-          <ul className="space-y-3 text-sm">
-            {data.awards.map((a, i) => (
-              <li key={i} className="flex gap-3">
-                <div className="shrink-0 w-32">
-                  <TextField
-                    value={a.period}
-                    editing={editing}
-                    onChange={(v) => patchItem("awards", i, { period: v })}
-                    placeholder="2025.05"
-                    className="text-xs text-text-6 tabular-nums block"
-                  />
-                </div>
-                <TextField
-                  value={a.title}
-                  editing={editing}
-                  onChange={(v) => patchItem("awards", i, { title: v })}
-                  placeholder="상 이름"
-                  className="text-text-1 font-semibold flex-1 min-w-0 block"
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <GraduationCap size={16} className="text-[#999f54]" />
-            학력
-          </h2>
-          <ul className="space-y-3 text-sm">
-            {data.stats.map((s, i) => (
-              <li key={i} className="flex gap-3">
-                <div className="shrink-0 w-32">
-                  <TextField
-                    value={s.n}
-                    editing={editing}
-                    onChange={(v) => patchItem("stats", i, { n: v })}
-                    placeholder="2018.07"
-                    className="text-xs text-text-6 tabular-nums block"
-                  />
-                </div>
-                <TextField
-                  value={s.l}
-                  editing={editing}
-                  onChange={(v) => patchItem("stats", i, { l: v })}
-                  placeholder="Le Cordon Bleu Seoul"
-                  className="text-text-1 font-semibold flex-1 min-w-0 block"
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <Utensils size={16} className="text-[#999f54]" />
-            시그니처 메뉴
-          </h2>
-          <ul className="divide-y divide-black/5">
-            {data.menus.map((m, i) => (
-              <li key={i} className="flex items-center justify-between py-3 gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className="w-8 h-8 rounded-full bg-zinc-700 text-white text-xs flex items-center justify-center shrink-0">
-                    {m.partner.slice(0, 1) || "?"}
-                  </span>
+        {isVisible("career") && (
+          <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
+              <ChefHat size={16} className="text-[#999f54]" />
+              경력
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => removeSection("career")}
+                  aria-label="경력 제거"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
+                >
+                  <X size={12} /> 제거
+                </button>
+              )}
+            </h2>
+            <ul className="space-y-4 text-sm">
+              {data.career.map((c, i) => (
+                <li key={i} className="flex gap-3">
+                  <div className="shrink-0 w-32">
+                    <TextField
+                      value={c.period}
+                      editing={editing}
+                      onChange={(v) => patchItem("career", i, { period: v })}
+                      placeholder="2020.03 ~ 2023.02"
+                      className="text-xs text-text-6 tabular-nums block"
+                    />
+                  </div>
                   <div className="min-w-0 flex-1 space-y-1">
                     <TextField
-                      value={m.title}
+                      value={c.summary}
                       editing={editing}
-                      onChange={(v) => patchItem("menus", i, { title: v })}
-                      className="text-sm text-text-1 block"
+                      onChange={(v) => patchItem("career", i, { summary: v })}
+                      placeholder="주요 내용"
+                      className="text-text-1 block"
                     />
-                    {editing ? (
-                      <input
-                        type="text"
-                        value={m.partner}
-                        onChange={(e) => patchItem("menus", i, { partner: e.target.value })}
-                        placeholder="파트너"
-                        className={`${INPUT_BASE} text-xs w-full`}
-                      />
-                    ) : (
-                      <div className="text-xs text-text-5 truncate">with {m.partner}</div>
-                    )}
+                    <TextArea
+                      value={c.detail}
+                      editing={editing}
+                      onChange={(v) => patchItem("career", i, { detail: v })}
+                      className="text-xs text-text-5 leading-relaxed"
+                    />
                   </div>
-                </div>
-                <div className="shrink-0 text-xs text-text-6">
-                  <TextField
-                    value={m.when}
-                    editing={editing}
-                    onChange={(v) => patchItem("menus", i, { when: v })}
-                    className="w-20 text-right"
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <Sparkles size={16} className="text-[#999f54]" />
-            관심분야
-          </h2>
-          <ul className="space-y-3 text-sm">
-            {data.contacts.map((c, i) => {
-              const Icon = c.kind === "ig" ? AtSign : c.kind === "web" ? Globe : Mail;
-              return (
-                <li key={i} className="flex items-center gap-3">
-                  <Icon size={18} className="text-text-5 shrink-0" />
+        {isVisible("awards") && (
+          <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
+              <Medal size={16} className="text-[#999f54]" />
+              수상 내역
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => removeSection("awards")}
+                  aria-label="수상 내역 제거"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
+                >
+                  <X size={12} /> 제거
+                </button>
+              )}
+            </h2>
+            <ul className="space-y-3 text-sm">
+              {data.awards.map((a, i) => (
+                <li key={i} className="flex gap-3">
+                  <div className="shrink-0 w-32">
+                    <TextField
+                      value={a.period}
+                      editing={editing}
+                      onChange={(v) => patchItem("awards", i, { period: v })}
+                      placeholder="2025.05"
+                      className="text-xs text-text-6 tabular-nums block"
+                    />
+                  </div>
                   <TextField
-                    value={c.value}
+                    value={a.title}
                     editing={editing}
-                    onChange={(v) => patchItem("contacts", i, { value: v })}
-                    className="text-text-1 flex-1"
+                    onChange={(v) => patchItem("awards", i, { title: v })}
+                    placeholder="상 이름"
+                    className="text-text-1 font-semibold flex-1 min-w-0 block"
                   />
                 </li>
-              );
-            })}
-          </ul>
-        </section>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
-            <Camera size={16} className="text-[#999f54]" />
-            사진
-          </h2>
-          <PhotoUpload />
-        </section>
+        {isVisible("stats") && (
+          <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
+              <GraduationCap size={16} className="text-[#999f54]" />
+              학력
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => removeSection("stats")}
+                  aria-label="학력 제거"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
+                >
+                  <X size={12} /> 제거
+                </button>
+              )}
+            </h2>
+            <ul className="space-y-3 text-sm">
+              {data.stats.map((s, i) => (
+                <li key={i} className="flex gap-3">
+                  <div className="shrink-0 w-32">
+                    <TextField
+                      value={s.n}
+                      editing={editing}
+                      onChange={(v) => patchItem("stats", i, { n: v })}
+                      placeholder="2018.07"
+                      className="text-xs text-text-6 tabular-nums block"
+                    />
+                  </div>
+                  <TextField
+                    value={s.l}
+                    editing={editing}
+                    onChange={(v) => patchItem("stats", i, { l: v })}
+                    placeholder="Le Cordon Bleu Seoul"
+                    className="text-text-1 font-semibold flex-1 min-w-0 block"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {isVisible("menus") && (
+          <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
+              <Utensils size={16} className="text-[#999f54]" />
+              시그니처 메뉴
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => removeSection("menus")}
+                  aria-label="시그니처 메뉴 제거"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
+                >
+                  <X size={12} /> 제거
+                </button>
+              )}
+            </h2>
+            <ul className="divide-y divide-black/5">
+              {data.menus.map((m, i) => (
+                <li key={i} className="flex items-center justify-between py-3 gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center shrink-0">
+                      <User size={16} strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <TextField
+                        value={m.title}
+                        editing={editing}
+                        onChange={(v) => patchItem("menus", i, { title: v })}
+                        className="text-sm text-text-1 block"
+                      />
+                      {editing ? (
+                        <input
+                          type="text"
+                          value={m.partner}
+                          onChange={(e) => patchItem("menus", i, { partner: e.target.value })}
+                          placeholder="파트너"
+                          className={`${INPUT_BASE} text-xs w-full`}
+                        />
+                      ) : (
+                        <div className="text-xs text-text-5 truncate">with {m.partner}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-xs text-text-6">
+                    <TextField
+                      value={m.when}
+                      editing={editing}
+                      onChange={(v) => patchItem("menus", i, { when: v })}
+                      className="w-20 text-right"
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {isVisible("contacts") && (
+          <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
+              <Sparkles size={16} className="text-[#999f54]" />
+              관심분야
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => removeSection("contacts")}
+                  aria-label="관심분야 제거"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
+                >
+                  <X size={12} /> 제거
+                </button>
+              )}
+            </h2>
+            <ul className="space-y-3 text-sm">
+              {data.contacts.map((c, i) => {
+                const Icon = c.kind === "ig" ? AtSign : c.kind === "web" ? Globe : Mail;
+                return (
+                  <li key={i} className="flex items-center gap-3">
+                    <Icon size={18} className="text-text-5 shrink-0" />
+                    <TextField
+                      value={c.value}
+                      editing={editing}
+                      onChange={(v) => patchItem("contacts", i, { value: v })}
+                      className="text-text-1 flex-1"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {isVisible("photos") && (
+          <section className="mt-2 rounded-xl border border-black/10 bg-white shadow-sm p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
+              <Camera size={16} className="text-[#999f54]" />
+              사진
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => removeSection("photos")}
+                  aria-label="사진 제거"
+                  className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
+                >
+                  <X size={12} /> 제거
+                </button>
+              )}
+            </h2>
+            <PhotoUpload />
+          </section>
+        )}
 
       </main>
+
+      <Modal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="항목 추가"
+        size="sm"
+      >
+        {availableSections.length === 0 ? (
+          <p className="text-xs text-text-5">추가할 수 있는 항목을 모두 추가했어요.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {availableSections.map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => addSection(k)}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border border-black/15 bg-white text-left hover:border-[#999f54] hover:bg-[#999f54]/5 transition-colors"
+              >
+                <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-text-5">
+                  <Plus size={14} />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-text-2">
+                    {SECTION_LABELS[k]}
+                  </span>
+                  <span className="block text-[11px] text-text-6 truncate">
+                    {SECTION_HINTS[k]}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Modal>
 
       {pendingAvatarFile && (
         <AvatarCropper

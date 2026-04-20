@@ -40,17 +40,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const hidden = useHideOnScrollDown();
   return (
     <div className="min-h-screen flex flex-col bg-white text-text-4">
-      <div className="sticky top-0 z-50 bg-white">
-        <div
-          aria-hidden={hidden}
-          className={`overflow-hidden transition-[max-height,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            hidden
-              ? "max-h-0 opacity-0 -translate-y-1"
-              : "max-h-20 opacity-100 translate-y-0"
-          }`}
-        >
-          <SiteHeader />
-        </div>
+      <div
+        aria-hidden={hidden}
+        className={`sticky top-0 z-50 bg-white will-change-transform transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          hidden ? "-translate-y-full" : "translate-y-0"
+        }`}
+      >
+        <SiteHeader />
       </div>
       {children}
       <BottomNav />

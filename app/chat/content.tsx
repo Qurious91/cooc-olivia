@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, User } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -88,8 +88,8 @@ export default function ChatContent() {
           <ArrowLeft size={20} />
         </Link>
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-9 h-9 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] text-sm flex items-center justify-center">
-            {room.withName[0]}
+          <span className="w-9 h-9 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
+            <User size={18} strokeWidth={1.75} />
           </span>
           <div className="min-w-0 flex items-baseline gap-2">
             <div className="text-base font-semibold text-text-1 truncate">{room.withName}</div>

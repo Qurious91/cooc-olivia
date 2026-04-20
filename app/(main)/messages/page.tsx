@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Trash2 } from "lucide-react";
+import { MessageCircle, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type ChatRoom, deleteChat, loadChats } from "../../data/chats";
@@ -62,8 +62,8 @@ export default function MessagesPage() {
                   href={`/chat?id=${encodeURIComponent(r.id)}`}
                   className="flex items-center gap-3 px-4 py-3 active:bg-black/5 hover:bg-black/[0.02]"
                 >
-                  <span className="w-12 h-12 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] text-base font-semibold flex items-center justify-center">
-                    {r.withName[0]}
+                  <span className="w-12 h-12 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
+                    <User size={22} strokeWidth={1.75} />
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">

@@ -1,5 +1,6 @@
 "use client";
 
+import { User } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -143,11 +144,11 @@ export default function Home() {
                   <li key={c.title} className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex -space-x-2 shrink-0">
-                        <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] text-xs flex items-center justify-center border-2 border-white">
-                          {c.a[0]}
+                        <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center border-2 border-white">
+                          <User size={14} strokeWidth={1.75} />
                         </span>
-                        <span className="w-8 h-8 rounded-full bg-zinc-700 text-white text-xs flex items-center justify-center border-2 border-white">
-                          {c.b[0]}
+                        <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center border-2 border-white">
+                          <User size={14} strokeWidth={1.75} />
                         </span>
                       </div>
                       <div className="min-w-0">

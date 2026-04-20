@@ -42,6 +42,43 @@ export default function HeroSlider({
     });
   }, []);
 
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const settle = () => {
+      if (jumpingRef.current) return;
+      const w = el.clientWidth;
+      if (w === 0) return;
+      const i = Math.round(el.scrollLeft / w);
+      if (i !== 0 && i !== n + 1) return;
+      const realPos = i === 0 ? n * w : w;
+      jumpingRef.current = true;
+      el.style.scrollBehavior = "auto";
+      el.scrollLeft = realPos;
+      requestAnimationFrame(() => {
+        el.style.scrollBehavior = "";
+        jumpingRef.current = false;
+      });
+    };
+
+    if ("onscrollend" in window) {
+      el.addEventListener("scrollend", settle);
+      return () => el.removeEventListener("scrollend", settle);
+    }
+
+    let timer: number | null = null;
+    const debounced = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(settle, 150);
+    };
+    el.addEventListener("scroll", debounced);
+    return () => {
+      el.removeEventListener("scroll", debounced);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [n]);
+
   const onScroll = () => {
     if (jumpingRef.current) return;
     const el = ref.current;
@@ -89,26 +126,6 @@ export default function HeroSlider({
     const dir = delta > threshold ? 1 : delta < -threshold ? -1 : 0;
     const targetIdx = startIdx + dir;
     el.scrollTo({ left: targetIdx * w, behavior: "smooth" });
-    if (targetIdx === 0 || targetIdx === n + 1) {
-      const realPos = targetIdx === 0 ? n * w : w;
-      const settle = () => {
-        const el2 = ref.current;
-        if (!el2) return;
-        jumpingRef.current = true;
-        el2.style.scrollBehavior = "auto";
-        el2.scrollLeft = realPos;
-        requestAnimationFrame(() => {
-          el2.style.scrollBehavior = "";
-          jumpingRef.current = false;
-        });
-      };
-      const supportsScrollEnd = "onscrollend" in window;
-      if (supportsScrollEnd) {
-        el.addEventListener("scrollend", settle, { once: true });
-      } else {
-        window.setTimeout(settle, 500);
-      }
-    }
   };
 
   const current = slides[slide];
