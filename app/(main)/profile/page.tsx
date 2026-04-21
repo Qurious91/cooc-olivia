@@ -681,7 +681,7 @@ function PhotosContent({
         {photos.map((p) => (
           <div
             key={p.id}
-            className="aspect-square rounded-lg overflow-hidden bg-black/5 dark:bg-white/5"
+            className="isolate aspect-square rounded-lg overflow-hidden bg-black/5 dark:bg-white/5"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -701,7 +701,7 @@ function PhotosContent({
           {photos.map((p) => (
             <div
               key={p.id}
-              className="relative aspect-square rounded-lg overflow-hidden bg-black/5 dark:bg-white/5"
+              className="relative isolate aspect-square rounded-lg overflow-hidden bg-black/5 dark:bg-white/5"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -772,7 +772,7 @@ function MenuContent({
       <ul className="grid grid-cols-2 gap-3">
         {items.map((m) => (
           <li key={m.id} className="space-y-1.5">
-            <div className="aspect-square rounded-lg overflow-hidden bg-black/5 dark:bg-white/5">
+            <div className="isolate aspect-square rounded-lg overflow-hidden bg-black/5 dark:bg-white/5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={m.imageUrl}
@@ -808,7 +808,7 @@ function MenuContent({
           key={m.id}
           className="flex gap-3 pb-4 border-b border-black/5 dark:border-white/5 last:border-0 last:pb-0"
         >
-          <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-black/5 dark:bg-white/5">
+          <div className="shrink-0 isolate w-20 h-20 rounded-lg overflow-hidden bg-black/5 dark:bg-white/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={m.imageUrl}

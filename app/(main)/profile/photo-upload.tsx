@@ -77,7 +77,7 @@ export default function PhotoUpload() {
         {photos.map((p) => (
           <div
             key={p.id}
-            className="relative aspect-square rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5"
+            className="relative isolate aspect-square rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt="" className="w-full h-full object-cover" />

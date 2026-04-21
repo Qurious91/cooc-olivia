@@ -139,10 +139,10 @@ export default function Home() {
                   </>
                 ),
                 title: (
-                  <h2 className="text-3xl font-bold leading-tight">Cook, Connect, Collab.</h2>
+                  <h2 className="text-3xl font-medium tracking-tight leading-tight">Cook, Connect, Collab.</h2>
                 ),
                 subtitle: (
-                  <p className="text-sm opacity-90">요리하고, 연결하고, 함께 만든다.</p>
+                  <p className="text-sm text-white/85">요리하고, 연결하고, 함께 만든다.</p>
                 ),
               }}
             />

@@ -131,7 +131,10 @@ export default function HeroSlider({
   const current = slides[slide];
 
   return (
-    <section className={`relative rounded-xl overflow-hidden ${minHeight}`}>
+    <section
+      style={{ "--r": "0.75rem" } as React.CSSProperties}
+      className={`relative rounded-[var(--r)] [clip-path:inset(0_round_var(--r))] ${minHeight}`}
+    >
       <div
         ref={ref}
         onScroll={onScroll}
@@ -153,18 +156,18 @@ export default function HeroSlider({
           />
         ))}
       </div>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-end p-5 text-white">
+      <div className="pointer-events-none absolute inset-0 [background:linear-gradient(105deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.35)_35%,rgba(0,0,0,0)_65%)]" />
+      <div className="pointer-events-none absolute inset-0 flex flex-col justify-end p-5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.2)]">
         {sharedCaption ? (
           <>
             {sharedCaption.chip && (
-              <span className="self-start inline-flex items-center gap-1.5 text-xs tracking-tight px-2.5 py-1 rounded-full border border-white/60">
+              <span className="self-start inline-flex items-center gap-1.5 text-xs tracking-tight px-2.5 py-1 rounded-full border border-white/60 bg-white/10 backdrop-blur-sm">
                 {sharedCaption.chip}
               </span>
             )}
             <div className="mt-3">{sharedCaption.title}</div>
             {sharedCaption.subtitle && (
-              <div className="mt-1.5">{sharedCaption.subtitle}</div>
+              <div className="mt-1.5 text-white/85">{sharedCaption.subtitle}</div>
             )}
           </>
         ) : (
@@ -175,10 +178,10 @@ export default function HeroSlider({
               </span>
             )}
             {current?.title && (
-              <h2 className="mt-2 text-xl font-bold leading-tight">{current.title}</h2>
+              <h2 className="mt-2 text-xl font-medium tracking-tight leading-tight">{current.title}</h2>
             )}
             {current?.subtitle && (
-              <p className="mt-1 text-xs opacity-90">{current.subtitle}</p>
+              <p className="mt-1 text-xs text-white/85">{current.subtitle}</p>
             )}
           </>
         )}

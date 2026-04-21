@@ -118,7 +118,7 @@ export default function OngoingContent() {
             {items.map((it) => (
               <li
                 key={it.id}
-                className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm overflow-hidden"
+                className="isolate rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm overflow-hidden"
               >
                 <Link href={`/ongoing/${it.id}`} className="block">
                   <div className="aspect-[4/3] bg-black/5 dark:bg-white/5 relative">
