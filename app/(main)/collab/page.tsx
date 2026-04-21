@@ -296,7 +296,7 @@ function NewCollab() {
               aria-required="true"
               rows={5}
               placeholder="어떤 협업인지, 기대하는 결과물은 무엇인지 적어주세요."
-              className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] [field-sizing:content]"
+              className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
             />
             <div className="mt-2">
               <button

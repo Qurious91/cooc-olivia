@@ -78,3 +78,7 @@ body {
     font-size: 16px;
   }
 }
+
+textarea {
+  field-sizing: content;
+}

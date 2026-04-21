@@ -143,7 +143,7 @@ const INPUT_BASE =
   "bg-transparent border-b border-dashed border-[#999f54]/35 rounded-none outline-none pb-px transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54]";
 
 const TEXTAREA_BASE =
-  "bg-transparent border border-dashed border-[#999f54]/35 rounded-md px-3 py-2 outline-none transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54] focus:bg-[#999f54]/5 [field-sizing:content]";
+  "bg-transparent border border-dashed border-[#999f54]/35 rounded-md px-3 py-2 outline-none transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54] focus:bg-[#999f54]/5";
 
 function ReorderRow({ type }: { type: SectionType }) {
   const {
