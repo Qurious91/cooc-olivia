@@ -131,7 +131,7 @@ export default function HeroSlider({
   const current = slides[slide];
 
   return (
-    <section className={`relative isolate rounded-xl shadow-sm overflow-hidden ${minHeight}`}>
+    <section className={`relative rounded-xl overflow-hidden ${minHeight}`}>
       <div
         ref={ref}
         onScroll={onScroll}
@@ -153,7 +153,7 @@ export default function HeroSlider({
           />
         ))}
       </div>
-      <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
       <div className="pointer-events-none absolute inset-0 flex flex-col justify-end p-5 text-white">
         {sharedCaption ? (
           <>
