@@ -147,8 +147,8 @@ export default function Home() {
               }}
             />
 
-            <section className="rounded-xl bg-surface px-4 py-3 shadow-sm border border-black/5 dark:border-white/5">
-              <h3 className="text-sm font-semibold text-text-1 mb-2">어떤 협업을 원하시나요?</h3>
+            <section className="rounded-xl bg-surface p-5 shadow-sm border border-black/5 dark:border-white/5">
+              <h3 className="text-base font-semibold text-text-1 mb-3">어떤 협업을 원하시나요?</h3>
               <div className="grid grid-cols-5 gap-2">
                 {collabKinds.map((k) => {
                   const Icon = ICON_MAP[k.icon] ?? Handshake;
@@ -168,10 +168,15 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-xl bg-surface p-6 shadow-sm border border-black/5 dark:border-white/5">
-              <div className="flex items-end justify-between mb-3">
-                <h3 className="text-base font-semibold text-text-1">진행중인 협업</h3>
-                <Link href="/ongoing" className="text-xs text-text-5 hover:text-text-3">전체보기</Link>
+            <section className="rounded-xl bg-surface p-5 shadow-sm border border-black/5 dark:border-white/5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-text-1">진행중인 협업</h3>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                    제작중
+                  </span>
+                </div>
+                <Link href="/ongoing" className="text-xs text-[#999f54] hover:text-[#7a7f43]">전체보기</Link>
               </div>
               <ul className="divide-y divide-black/5">
                 {[
@@ -208,6 +213,11 @@ export default function Home() {
             <HeroSlider slides={CREATOR_SLIDES} minHeight="min-h-52" />
 
             <section className="rounded-xl bg-surface p-6 shadow-sm border border-black/5 dark:border-white/5">
+              <div className="mb-3 flex justify-end">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                  제작중
+                </span>
+              </div>
               <div className="grid grid-cols-4 gap-4">
                 {CREATOR_CATEGORIES.map(({ Icon, label }) => (
                   <button
@@ -228,6 +238,11 @@ export default function Home() {
             <HeroSlider slides={BRAND_SLIDES} minHeight="min-h-52" />
 
             <section className="rounded-xl bg-surface p-6 shadow-sm border border-black/5 dark:border-white/5">
+              <div className="mb-3 flex justify-end">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                  제작중
+                </span>
+              </div>
               <div className="grid grid-cols-4 gap-4">
                 {BRAND_CATEGORIES.map(({ Icon, label }) => (
                   <button

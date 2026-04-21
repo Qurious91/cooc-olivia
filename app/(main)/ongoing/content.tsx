@@ -54,6 +54,9 @@ export default function OngoingContent() {
           <ArrowLeft size={16} />
         </Link>
         <h1 className="text-[13px] font-semibold text-text-1">진행중인 협업</h1>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[10px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+          제작중
+        </span>
 
         <div ref={menuRef} className="ml-auto relative">
           <button
