@@ -4,7 +4,6 @@ import {
   AtSign,
   Briefcase,
   Camera,
-  ChefHat,
   Check,
   Eye,
   EyeOff,
@@ -145,6 +144,125 @@ const INPUT_BASE =
 const TEXTAREA_BASE =
   "bg-transparent border border-dashed border-[#999f54]/35 rounded-md px-3 py-2 outline-none transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54] focus:bg-[#999f54]/5";
 
+function PreviewPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="pb-4 border-b border-dashed border-black/10 dark:border-white/10">
+      <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
+      {children}
+    </div>
+  );
+}
+
+function AddItemButton({
+  onClick,
+  onPointerDown,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-50"
+    >
+      <Plus size={12} className="inline mr-1" />
+      {children}
+    </button>
+  );
+}
+
+// 프로필 편집에서 반복되는 "왼쪽 라벨 스팬 + 오른쪽 입력" 행 구조.
+// 필수 표시(*)는 라벨 노드에 넣어서 호출부에서 제어. alignStart는 textarea 행처럼 상단 정렬이 필요할 때.
+function LabeledRow({
+  label,
+  labelWidth = "w-16",
+  labelTextSize = "text-xs",
+  alignStart = false,
+  children,
+}: {
+  label: React.ReactNode;
+  labelWidth?: string;
+  labelTextSize?: string;
+  alignStart?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      className={`flex gap-3 ${alignStart ? "items-start" : "items-baseline"}`}
+    >
+      <span
+        className={`shrink-0 ${labelWidth} ${labelTextSize} text-text-6${alignStart ? " pt-2" : ""}`}
+      >
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+// 키워드 칩. onRemove가 주어지면 ×버튼이 붙어 편집용 칩이 되고, 없으면 읽기 전용.
+function KeywordChip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove?: () => void;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center text-[11px] ${
+        onRemove ? "gap-0.5 pl-2 pr-1" : "px-2"
+      } py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25`}
+    >
+      #{label}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`${label} 제거`}
+          className="p-0.5 rounded-full hover:text-red-500"
+        >
+          <X size={10} />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function RemoveItemButton({
+  onClick,
+  onPointerDown,
+  ariaLabel,
+}: {
+  onClick: () => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerDown={onPointerDown}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-500 px-2 py-1 rounded-md hover:bg-red-500/5"
+    >
+      <Trash2 size={12} />
+      삭제
+    </button>
+  );
+}
+
+function EmptyHint({ children = "내용을 추가해 보세요." }: { children?: React.ReactNode }) {
+  return <p className="text-xs text-text-6">{children}</p>;
+}
+
 function ReorderRow({ type }: { type: SectionType }) {
   const {
     attributes,
@@ -217,7 +335,7 @@ function SectionShell({
           )}
         </h2>
         {children ?? (
-          <p className="text-xs text-text-6">내용을 추가해 보세요.</p>
+          <EmptyHint />
         )}
       </div>
     </section>
@@ -242,7 +360,7 @@ function CurrentContent({
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   const hasAny = Boolean(affiliation || jobTitle || region);
   const preview = !hasAny ? (
-    <p className="text-xs text-text-6">내용을 추가해 보세요.</p>
+    <EmptyHint />
   ) : (
     <div className="space-y-1">
       {affiliation ? (
@@ -273,12 +391,7 @@ function CurrentContent({
   if (!editing) return preview;
   return (
     <div className="space-y-4">
-      {hasAny && showPreview && (
-        <div className="pb-4 border-b border-dashed border-black/10 dark:border-white/10">
-          <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
-          {preview}
-        </div>
-      )}
+      {hasAny && showPreview && <PreviewPanel>{preview}</PreviewPanel>}
       <div className="space-y-3 text-sm">
       <label className="flex gap-3 items-baseline">
         <span className="shrink-0 w-16 text-xs text-text-6">
@@ -317,41 +430,52 @@ function CurrentContent({
   );
 }
 
-function CareerContent({
+// 경력·수상·학력처럼 "날짜 + 제목 + 상세 + 삭제" 구조를 공유하는 섹션을 하나로 합친 제네릭 컴포넌트.
+// 날짜 필드는 섹션마다 다르므로(기간/연월) 미리보기/편집기 렌더링을 render-prop으로 주입.
+function DatedItemContent<T extends { id: string; title: string; body: string }>({
   editing,
   showPreview,
   items,
   onPatch,
   onAdd,
   onRemove,
+  label,
+  dateFieldLabel,
+  renderPreviewDate,
+  renderDateEditor,
 }: {
   editing: boolean;
   showPreview: boolean;
-  items: Career[];
-  onPatch: (id: string, patch: Partial<Career>) => void;
+  items: T[];
+  onPatch: (id: string, patch: Partial<T>) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  label: string;
+  dateFieldLabel: string;
+  renderPreviewDate: (item: T) => React.ReactNode;
+  renderDateEditor: (
+    item: T,
+    patch: (patch: Partial<T>) => void,
+  ) => React.ReactNode;
 }) {
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   const preview =
     items.length === 0 ? (
-      <p className="text-xs text-text-6">내용을 추가해 보세요.</p>
+      <EmptyHint />
     ) : (
       <ul className="space-y-4 text-sm">
-        {items.map((c) => (
-          <li key={c.id} className="flex gap-3 items-baseline">
+        {items.map((it) => (
+          <li key={it.id} className="flex gap-3 items-baseline">
             <div className="shrink-0 w-28 text-xs text-text-6 tabular-nums">
-              {c.startYm ? formatYm(c.startYm) : "----.--"}
-              <span className="mx-1">~</span>
-              {c.endYm ? formatYm(c.endYm) : "현재"}
+              {renderPreviewDate(it)}
             </div>
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="text-text-1 font-medium">
-                {c.title || <span className="text-text-6">제목</span>}
+                {it.title || <span className="text-text-6">제목</span>}
               </div>
-              {c.body && (
+              {it.body && (
                 <p className="text-xs text-text-5 leading-relaxed whitespace-pre-wrap">
-                  {c.body}
+                  {it.body}
                 </p>
               )}
             </div>
@@ -362,297 +486,54 @@ function CareerContent({
   if (!editing) return preview;
   return (
     <div className="space-y-4">
-      {items.length > 0 && showPreview && (
-        <div className="pb-4 border-b border-dashed border-black/10 dark:border-white/10">
-          <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
-          {preview}
-        </div>
-      )}
-      {items.map((c) => (
+      {items.length > 0 && showPreview && <PreviewPanel>{preview}</PreviewPanel>}
+      {items.map((it) => (
         <div
-          key={c.id}
+          key={it.id}
           className="space-y-2 pb-4 border-b border-black/5 dark:border-white/5 last:border-0 last:pb-0"
         >
           <div className="flex gap-3 items-center">
-            <span className="shrink-0 w-16 text-xs text-text-6">기간</span>
+            <span className="shrink-0 w-16 text-xs text-text-6">
+              {dateFieldLabel}
+            </span>
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="w-24">
-                <MonthPicker
-                  value={c.startYm}
-                  onChange={(v) => onPatch(c.id, { startYm: v })}
-                />
-              </div>
-              <span className="text-text-6 text-xs">~</span>
-              <div className="w-24">
-                <MonthPicker
-                  value={c.endYm ?? ""}
-                  onChange={(v) => onPatch(c.id, { endYm: v || null })}
-                  emptyLabel="현재"
-                  allowClear
-                />
-              </div>
+              {renderDateEditor(it, (patch) => onPatch(it.id, patch))}
             </div>
           </div>
-          <label className="flex gap-3 items-baseline">
-            <span className="shrink-0 w-16 text-xs text-text-6">주요 내용</span>
+          <LabeledRow label="주요 내용">
             <input
               type="text"
-              value={c.title}
-              onChange={(e) => onPatch(c.id, { title: e.target.value })}
+              value={it.title}
+              onChange={(e) =>
+                onPatch(it.id, { title: e.target.value } as Partial<T>)
+              }
               onPointerDown={stop}
               className={`${INPUT_BASE} text-sm text-text-1 flex-1 min-w-0`}
             />
-          </label>
-          <label className="flex gap-3 items-start">
-            <span className="shrink-0 w-16 text-xs text-text-6 pt-2">상세 내용</span>
+          </LabeledRow>
+          <LabeledRow label="상세 내용" alignStart>
             <textarea
-              value={c.body}
-              onChange={(e) => onPatch(c.id, { body: e.target.value })}
+              value={it.body}
+              onChange={(e) =>
+                onPatch(it.id, { body: e.target.value } as Partial<T>)
+              }
               onPointerDown={stop}
               rows={2}
               className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
             />
-          </label>
+          </LabeledRow>
           <div className="flex justify-end">
-            <button
-              type="button"
+            <RemoveItemButton
+              onClick={() => onRemove(it.id)}
               onPointerDown={stop}
-              onClick={() => onRemove(c.id)}
-              aria-label="경력 제거"
-              className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-500 px-2 py-1 rounded-md hover:bg-red-500/5"
-            >
-              <Trash2 size={12} />
-              삭제
-            </button>
+              ariaLabel={`${label} 제거`}
+            />
           </div>
         </div>
       ))}
-      <button
-        type="button"
-        onPointerDown={stop}
-        onClick={onAdd}
-        className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54]"
-      >
-        <Plus size={12} className="inline mr-1" /> 경력 추가
-      </button>
-    </div>
-  );
-}
-
-function AwardContent({
-  editing,
-  showPreview,
-  items,
-  onPatch,
-  onAdd,
-  onRemove,
-}: {
-  editing: boolean;
-  showPreview: boolean;
-  items: Award[];
-  onPatch: (id: string, patch: Partial<Award>) => void;
-  onAdd: () => void;
-  onRemove: (id: string) => void;
-}) {
-  const stop = (e: React.PointerEvent) => e.stopPropagation();
-  const preview =
-    items.length === 0 ? (
-      <p className="text-xs text-text-6">내용을 추가해 보세요.</p>
-    ) : (
-      <ul className="space-y-4 text-sm">
-        {items.map((a) => (
-          <li key={a.id} className="flex gap-3 items-baseline">
-            <div className="shrink-0 w-28 text-xs text-text-6 tabular-nums">
-              {a.receivedYm ? formatYm(a.receivedYm) : "----.--"}
-            </div>
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="text-text-1 font-medium">
-                {a.title || <span className="text-text-6">제목</span>}
-              </div>
-              {a.body && (
-                <p className="text-xs text-text-5 leading-relaxed whitespace-pre-wrap">
-                  {a.body}
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    );
-  if (!editing) return preview;
-  return (
-    <div className="space-y-4">
-      {items.length > 0 && showPreview && (
-        <div className="pb-4 border-b border-dashed border-black/10 dark:border-white/10">
-          <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
-          {preview}
-        </div>
-      )}
-      {items.map((a) => (
-        <div
-          key={a.id}
-          className="space-y-2 pb-4 border-b border-black/5 dark:border-white/5 last:border-0 last:pb-0"
-        >
-          <div className="flex gap-3 items-center">
-            <span className="shrink-0 w-16 text-xs text-text-6">연월</span>
-            <div className="w-24">
-              <MonthPicker
-                value={a.receivedYm}
-                onChange={(v) => onPatch(a.id, { receivedYm: v })}
-              />
-            </div>
-          </div>
-          <label className="flex gap-3 items-baseline">
-            <span className="shrink-0 w-16 text-xs text-text-6">주요 내용</span>
-            <input
-              type="text"
-              value={a.title}
-              onChange={(e) => onPatch(a.id, { title: e.target.value })}
-              onPointerDown={stop}
-              className={`${INPUT_BASE} text-sm text-text-1 flex-1 min-w-0`}
-            />
-          </label>
-          <label className="flex gap-3 items-start">
-            <span className="shrink-0 w-16 text-xs text-text-6 pt-2">상세 내용</span>
-            <textarea
-              value={a.body}
-              onChange={(e) => onPatch(a.id, { body: e.target.value })}
-              onPointerDown={stop}
-              rows={2}
-              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
-            />
-          </label>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onPointerDown={stop}
-              onClick={() => onRemove(a.id)}
-              aria-label="수상 제거"
-              className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-500 px-2 py-1 rounded-md hover:bg-red-500/5"
-            >
-              <Trash2 size={12} />
-              삭제
-            </button>
-          </div>
-        </div>
-      ))}
-      <button
-        type="button"
-        onPointerDown={stop}
-        onClick={onAdd}
-        className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54]"
-      >
-        <Plus size={12} className="inline mr-1" /> 수상 추가
-      </button>
-    </div>
-  );
-}
-
-function EducationContent({
-  editing,
-  showPreview,
-  items,
-  onPatch,
-  onAdd,
-  onRemove,
-}: {
-  editing: boolean;
-  showPreview: boolean;
-  items: Stat[];
-  onPatch: (id: string, patch: Partial<Stat>) => void;
-  onAdd: () => void;
-  onRemove: (id: string) => void;
-}) {
-  const stop = (e: React.PointerEvent) => e.stopPropagation();
-  const preview =
-    items.length === 0 ? (
-      <p className="text-xs text-text-6">내용을 추가해 보세요.</p>
-    ) : (
-      <ul className="space-y-4 text-sm">
-        {items.map((s) => (
-          <li key={s.id} className="flex gap-3 items-baseline">
-            <div className="shrink-0 w-28 text-xs text-text-6 tabular-nums">
-              {s.graduatedYm ? formatYm(s.graduatedYm) : "----.--"}
-            </div>
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="text-text-1 font-medium">
-                {s.title || <span className="text-text-6">제목</span>}
-              </div>
-              {s.body && (
-                <p className="text-xs text-text-5 leading-relaxed whitespace-pre-wrap">
-                  {s.body}
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    );
-  if (!editing) return preview;
-  return (
-    <div className="space-y-4">
-      {items.length > 0 && showPreview && (
-        <div className="pb-4 border-b border-dashed border-black/10 dark:border-white/10">
-          <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
-          {preview}
-        </div>
-      )}
-      {items.map((s) => (
-        <div
-          key={s.id}
-          className="space-y-2 pb-4 border-b border-black/5 dark:border-white/5 last:border-0 last:pb-0"
-        >
-          <div className="flex gap-3 items-center">
-            <span className="shrink-0 w-16 text-xs text-text-6">연월</span>
-            <div className="w-24">
-              <MonthPicker
-                value={s.graduatedYm}
-                onChange={(v) => onPatch(s.id, { graduatedYm: v })}
-              />
-            </div>
-          </div>
-          <label className="flex gap-3 items-baseline">
-            <span className="shrink-0 w-16 text-xs text-text-6">주요 내용</span>
-            <input
-              type="text"
-              value={s.title}
-              onChange={(e) => onPatch(s.id, { title: e.target.value })}
-              onPointerDown={stop}
-              className={`${INPUT_BASE} text-sm text-text-1 flex-1 min-w-0`}
-            />
-          </label>
-          <label className="flex gap-3 items-start">
-            <span className="shrink-0 w-16 text-xs text-text-6 pt-2">상세 내용</span>
-            <textarea
-              value={s.body}
-              onChange={(e) => onPatch(s.id, { body: e.target.value })}
-              onPointerDown={stop}
-              rows={2}
-              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
-            />
-          </label>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onPointerDown={stop}
-              onClick={() => onRemove(s.id)}
-              aria-label="학력 제거"
-              className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-500 px-2 py-1 rounded-md hover:bg-red-500/5"
-            >
-              <Trash2 size={12} />
-              삭제
-            </button>
-          </div>
-        </div>
-      ))}
-      <button
-        type="button"
-        onPointerDown={stop}
-        onClick={onAdd}
-        className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54]"
-      >
-        <Plus size={12} className="inline mr-1" /> 학력 추가
-      </button>
+      <AddItemButton onClick={onAdd} onPointerDown={stop}>
+        {label} 추가
+      </AddItemButton>
     </div>
   );
 }
@@ -674,7 +555,7 @@ function PhotosContent({
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   if (!editing) {
     if (photos.length === 0) {
-      return <p className="text-xs text-text-6">내용을 추가해 보세요.</p>;
+      return <EmptyHint />;
     }
     return (
       <div className="grid grid-cols-3 gap-1.5">
@@ -734,16 +615,13 @@ function PhotosContent({
           if (files.length > 0) onAdd(files);
         }}
       />
-      <button
-        type="button"
-        onPointerDown={stop}
+      <AddItemButton
         onClick={() => inputRef.current?.click()}
+        onPointerDown={stop}
         disabled={uploading}
-        className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-50"
       >
-        <Plus size={12} className="inline mr-1" />
         {uploading ? "업로드 중..." : "사진 추가"}
-      </button>
+      </AddItemButton>
     </div>
   );
 }
@@ -767,7 +645,7 @@ function MenuContent({
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   const preview =
     items.length === 0 ? (
-      <p className="text-xs text-text-6">내용을 추가해 보세요.</p>
+      <EmptyHint />
     ) : (
       <ul className="grid grid-cols-2 gap-3">
         {items.map((m) => (
@@ -797,12 +675,7 @@ function MenuContent({
   if (!editing) return preview;
   return (
     <div className="space-y-4">
-      {items.length > 0 && showPreview && (
-        <div className="pb-4 border-b border-dashed border-black/10 dark:border-white/10">
-          <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
-          {preview}
-        </div>
-      )}
+      {items.length > 0 && showPreview && <PreviewPanel>{preview}</PreviewPanel>}
       {items.map((m) => (
         <div
           key={m.id}
@@ -817,10 +690,13 @@ function MenuContent({
             />
           </div>
           <div className="flex-1 min-w-0 space-y-2">
-            <label className="flex gap-3 items-baseline">
-              <span className="shrink-0 w-16 text-xs text-text-6">
-                주요 내용 <span className="text-red-500">*</span>
-              </span>
+            <LabeledRow
+              label={
+                <>
+                  주요 내용 <span className="text-red-500">*</span>
+                </>
+              }
+            >
               <input
                 type="text"
                 value={m.title}
@@ -828,9 +704,8 @@ function MenuContent({
                 onPointerDown={stop}
                 className={`${INPUT_BASE} text-sm text-text-1 flex-1 min-w-0`}
               />
-            </label>
-            <label className="flex gap-3 items-start">
-              <span className="shrink-0 w-16 text-xs text-text-6 pt-2">상세 내용</span>
+            </LabeledRow>
+            <LabeledRow label="상세 내용" alignStart>
               <textarea
                 value={m.body}
                 onChange={(e) => onPatch(m.id, { body: e.target.value })}
@@ -838,18 +713,13 @@ function MenuContent({
                 rows={2}
                 className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
               />
-            </label>
+            </LabeledRow>
             <div className="flex justify-end">
-              <button
-                type="button"
-                onPointerDown={stop}
+              <RemoveItemButton
                 onClick={() => onRemove(m.id)}
-                aria-label="메뉴 제거"
-                className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-500 px-2 py-1 rounded-md hover:bg-red-500/5"
-              >
-                <Trash2 size={12} />
-                삭제
-              </button>
+                onPointerDown={stop}
+                ariaLabel="메뉴 제거"
+              />
             </div>
           </div>
         </div>
@@ -866,14 +736,12 @@ function MenuContent({
           if (files.length > 0) onAdd(files);
         }}
       />
-      <button
-        type="button"
-        onPointerDown={stop}
+      <AddItemButton
         onClick={() => inputRef.current?.click()}
-        className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54]"
+        onPointerDown={stop}
       >
-        <Plus size={12} className="inline mr-1" /> 메뉴 추가
-      </button>
+        메뉴 추가
+      </AddItemButton>
     </div>
   );
 }
@@ -903,28 +771,6 @@ function TextField({
   );
 }
 
-function TextArea({
-  value,
-  editing,
-  onChange,
-  className = "",
-}: {
-  value: string;
-  editing: boolean;
-  onChange: (v: string) => void;
-  className?: string;
-}) {
-  if (!editing) return <p className={className}>{value}</p>;
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      rows={4}
-      className={`${TEXTAREA_BASE} ${className} w-full`}
-    />
-  );
-}
-
 export default function Profile() {
   const [data, setData] = useState<ProfileData>(DEFAULT_DATA);
   const [editing, setEditing] = useState(false);
@@ -939,10 +785,13 @@ export default function Profile() {
     name: string | null;
     role: string | null;
     avatar_url: string | null;
+    affiliation: string | null;
   } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [roleInput, setRoleInput] = useState("");
+  const [affiliationInput, setAffiliationInput] = useState("");
+  const [keywordDraft, setKeywordDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [sectionTypes, setSectionTypes] = useState<SectionType[]>([]);
@@ -961,18 +810,25 @@ export default function Profile() {
       setUserId(user.id);
       const { data: row } = await supabase
         .from("profiles")
-        .select("name, role, avatar_url, affiliation, job_title, region")
+        .select("name, role, avatar_url, affiliation, job_title, region, keywords")
         .eq("id", user.id)
         .single();
       if (row) {
-        setProfile({ name: row.name, role: row.role, avatar_url: row.avatar_url });
+        setProfile({
+          name: row.name,
+          role: row.role,
+          avatar_url: row.avatar_url,
+          affiliation: row.affiliation,
+        });
         if (row.name) setNameInput(row.name);
         if (row.role) setRoleInput(row.role);
+        if (row.affiliation) setAffiliationInput(row.affiliation);
         setData((d) => ({
           ...d,
           affiliation: row.affiliation ?? "",
           jobTitle: row.job_title ?? "",
           region: row.region ?? "",
+          keywords: Array.isArray(row.keywords) ? row.keywords : [],
         }));
       }
       const { data: sections } = await supabase
@@ -1145,30 +1001,50 @@ export default function Profile() {
   };
 
   const isOnboarded =
-    profile !== null && !!profile.name && !!profile.role;
+    profile !== null &&
+    !!profile.name &&
+    !!profile.role &&
+    !!profile.affiliation;
   const needsOnboarding = profile !== null && !isOnboarded;
 
   const handleOnboardingSave = async () => {
-    if (!userId || !nameInput.trim() || !roleInput.trim()) return;
+    if (
+      !userId ||
+      !nameInput.trim() ||
+      !roleInput.trim() ||
+      !affiliationInput.trim()
+    )
+      return;
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase
       .from("profiles")
-      .update({ name: nameInput.trim(), role: roleInput.trim() })
+      .update({
+        name: nameInput.trim(),
+        role: roleInput.trim(),
+        affiliation: affiliationInput.trim(),
+      })
       .eq("id", userId);
     setSaving(false);
     if (!error) {
       setProfile((p) => ({
         name: nameInput.trim(),
         role: roleInput.trim(),
+        affiliation: affiliationInput.trim(),
         avatar_url: p?.avatar_url ?? null,
       }));
+      setData((d) => ({ ...d, affiliation: affiliationInput.trim() }));
     }
   };
 
   const isVisible = (k: SectionKey) => data.visible.includes(k);
-  const availableSections = sectionTypes.filter((s) => !isVisible(s.key));
+  // 'position' 섹션은 명함 카드에 흡수되어 더 이상 섹션 리스트에 노출하지 않음.
+  // 데이터(affiliation/job_title/region)는 유지되고 명함에서 편집됨.
+  const availableSections = sectionTypes.filter(
+    (s) => s.key !== "position" && !isVisible(s.key),
+  );
   const orderedSectionTypes = data.visible
+    .filter((k) => k !== "position")
     .map((k) => sectionTypes.find((t) => t.key === k))
     .filter((t): t is SectionType => !!t);
 
@@ -1206,6 +1082,7 @@ export default function Profile() {
     setOriginalData(null);
     setNameInput(profile?.name ?? "");
     setRoleInput(profile?.role ?? "");
+    setKeywordDraft("");
     setEditing(false);
     setPickerOpen(false);
     setReorderOpen(false);
@@ -1213,8 +1090,8 @@ export default function Profile() {
     setAvatarMenuOpen(false);
   };
 
-  const currentVisible = data.visible.includes("position");
-  const currentOk = !currentVisible || data.affiliation.trim().length > 0;
+  // affiliation은 identity 코어 (명함 필수) — 섹션 노출 여부와 무관하게 항상 요구
+  const currentOk = data.affiliation.trim().length > 0;
   const careerOk = data.career.every(
     (c) => c.startYm.length > 0 && c.title.trim().length > 0,
   );
@@ -1453,10 +1330,18 @@ export default function Profile() {
         affiliation: data.affiliation.trim() || null,
         job_title: data.jobTitle.trim() || null,
         region: data.region.trim() || null,
+        keywords: data.keywords,
       })
       .eq("id", userId);
     setProfile((p) =>
-      p ? { ...p, name: trimmedName, role: trimmedRole } : p,
+      p
+        ? {
+            ...p,
+            name: trimmedName,
+            role: trimmedRole,
+            affiliation: data.affiliation.trim(),
+          }
+        : p,
     );
 
     const origCareerById = new Map(originalData.career.map((c) => [c.id, c]));
@@ -1873,183 +1758,330 @@ export default function Profile() {
           </div>
         )}
 
-        <section className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-5">
-          {editing && !needsOnboarding && (
-            <div className="text-[10px] text-text-6 mb-2 tracking-wide">미리보기</div>
-          )}
-          <div className="flex items-start gap-5">
-            {isOnboarded && (
-              <div className="shrink-0 relative" ref={avatarMenuRef}>
+        {profile !== null && (
+          <section className="mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-5">
+            {needsOnboarding ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-text-4 mb-1.5">
+                    이름
+                  </label>
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="이름을 입력하세요"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-4 mb-1.5">
+                    역할
+                  </label>
+                  <input
+                    type="text"
+                    value={roleInput}
+                    onChange={(e) => setRoleInput(e.target.value)}
+                    placeholder="예) 크리에이터 / 브랜드"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-4 mb-1.5">
+                    소속
+                  </label>
+                  <input
+                    type="text"
+                    value={affiliationInput}
+                    onChange={(e) => setAffiliationInput(e.target.value)}
+                    placeholder="예) 더 키친 / 오리진 푸드컴퍼니"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  />
+                </div>
+                {(nameInput.trim() ||
+                  roleInput.trim() ||
+                  affiliationInput.trim()) && (
+                  <div>
+                    <p className="text-xs text-text-5 mb-1.5">이렇게 표시되요</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-text-1">
+                        {nameInput.trim()}
+                      </span>
+                      <span className="text-xs text-text-5">
+                        {roleInput.trim()}
+                      </span>
+                    </div>
+                    {affiliationInput.trim() && (
+                      <p className="mt-1 text-xs text-text-5">
+                        {affiliationInput.trim()}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!editing) return;
-                    if (profile?.avatar_url) {
-                      setAvatarMenuOpen((v) => !v);
-                    } else {
-                      avatarInputRef.current?.click();
-                    }
-                  }}
-                  disabled={!editing}
-                  aria-label="프로필 사진 편집"
-                  className="relative w-14 h-14 rounded-full overflow-hidden bg-[#999f54] text-[#F2F0DC] flex items-center justify-center"
+                  onClick={handleOnboardingSave}
+                  disabled={
+                    !nameInput.trim() ||
+                    !roleInput.trim() ||
+                    !affiliationInput.trim() ||
+                    saving
+                  }
+                  className="w-full py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90 disabled:opacity-50"
                 >
-                  {profile?.avatar_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={profile.avatar_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User size={24} strokeWidth={1.75} />
-                  )}
-                  {editing && (
-                    <span className="absolute inset-0 bg-black/45 text-white flex items-center justify-center">
-                      <Plus size={20} strokeWidth={2} />
-                    </span>
-                  )}
+                  {saving ? "저장 중..." : "시작하기"}
                 </button>
-                {editing && avatarMenuOpen && profile?.avatar_url && (
-                  <div className="absolute top-full left-0 mt-2 z-20 min-w-[120px] rounded-xl bg-surface border border-black/10 dark:border-white/10 shadow-lg py-1 text-sm">
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-5">
+                  <div className="shrink-0 relative" ref={avatarMenuRef}>
                     <button
                       type="button"
                       onClick={() => {
-                        setAvatarMenuOpen(false);
-                        avatarInputRef.current?.click();
+                        if (!editing) return;
+                        if (profile.avatar_url) {
+                          setAvatarMenuOpen((v) => !v);
+                        } else {
+                          avatarInputRef.current?.click();
+                        }
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-text-1 hover:bg-black/5 dark:hover:bg-white/5"
+                      disabled={!editing}
+                      aria-label="프로필 사진 편집"
+                      className="relative w-14 h-14 rounded-full overflow-hidden bg-[#999f54] text-[#F2F0DC] flex items-center justify-center"
                     >
-                      <Pencil size={13} />
-                      변경
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAvatarRemove}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-500 hover:bg-red-500/5"
-                    >
-                      <Trash2 size={13} />
-                      제거
-                    </button>
-                  </div>
-                )}
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={onAvatarPick}
-                />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              {needsOnboarding ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-text-4 mb-1.5">
-                      이름
-                    </label>
-                    <input
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      placeholder="이름을 입력하세요"
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-4 mb-1.5">
-                      역할
-                    </label>
-                    <input
-                      type="text"
-                      value={roleInput}
-                      onChange={(e) => setRoleInput(e.target.value)}
-                      placeholder="예) 크리에이터 / 브랜드"
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
-                    />
-                  </div>
-                  {(nameInput.trim() || roleInput.trim()) && (
-                    <div>
-                      <p className="text-xs text-text-5 mb-1.5">이렇게 표시되요</p>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-text-1">
-                          {nameInput.trim()}
+                      {profile.avatar_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={profile.avatar_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User size={24} strokeWidth={1.75} />
+                      )}
+                      {editing && (
+                        <span className="absolute inset-0 bg-black/45 text-white flex items-center justify-center">
+                          <Plus size={20} strokeWidth={2} />
                         </span>
-                        <span className="text-xs text-text-5">
-                          {roleInput.trim()}
-                        </span>
+                      )}
+                    </button>
+                    {editing && avatarMenuOpen && profile.avatar_url && (
+                      <div className="absolute top-full left-0 mt-2 z-20 min-w-[120px] rounded-xl bg-surface border border-black/10 dark:border-white/10 shadow-lg py-1 text-sm">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAvatarMenuOpen(false);
+                            avatarInputRef.current?.click();
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-text-1 hover:bg-black/5 dark:hover:bg-white/5"
+                        >
+                          <Pencil size={13} />
+                          변경
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAvatarRemove}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-500 hover:bg-red-500/5"
+                        >
+                          <Trash2 size={13} />
+                          제거
+                        </button>
                       </div>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleOnboardingSave}
-                    disabled={!nameInput.trim() || !roleInput.trim() || saving}
-                    className="w-full py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-                  >
-                    {saving ? "저장 중..." : "시작하기"}
-                  </button>
-                </div>
-              ) : editing ? (
-                <div className="flex items-center h-14 min-w-0">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    <h1 className="text-lg font-bold text-text-1 truncate leading-tight">
-                      {nameInput.trim() || (
-                        <span className="text-text-6 font-normal">이름</span>
-                      )}
-                    </h1>
-                    <span className="text-xs text-text-5 truncate">
-                      {roleInput.trim() || (
-                        <span className="text-text-6">역할</span>
-                      )}
-                    </span>
+                    )}
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={onAvatarPick}
+                    />
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-center h-14 min-w-0">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    <h1 className="text-lg font-bold text-text-1 truncate leading-tight">
-                      {profile?.name ?? ""}
-                    </h1>
-                    {profile?.role && (
-                      <span className="text-xs text-text-5 truncate">
-                        {ROLE_LABELS[profile.role] ?? profile.role}
-                      </span>
+                  <div className="min-w-0 flex-1">
+                    {!editing && (
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <h1 className="text-lg font-bold text-text-1 truncate leading-tight">
+                          {profile.name ?? ""}
+                        </h1>
+                        {profile.role && (
+                          <span className="text-xs text-text-5 truncate">
+                            {ROLE_LABELS[profile.role] ?? profile.role}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {editing ? (
+                      <div className="space-y-2 text-sm">
+                        <LabeledRow
+                          label={
+                            <>
+                              이름 <span className="text-red-500">*</span>
+                            </>
+                          }
+                          labelWidth="w-12"
+                          labelTextSize="text-[11px]"
+                        >
+                          <input
+                            type="text"
+                            value={nameInput}
+                            onChange={(e) => setNameInput(e.target.value)}
+                            className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 text-sm`}
+                          />
+                        </LabeledRow>
+                        <LabeledRow
+                          label={
+                            <>
+                              역할 <span className="text-red-500">*</span>
+                            </>
+                          }
+                          labelWidth="w-12"
+                          labelTextSize="text-[11px]"
+                        >
+                          <input
+                            type="text"
+                            value={roleInput}
+                            onChange={(e) => setRoleInput(e.target.value)}
+                            placeholder="예) 크리에이터, 브랜드"
+                            className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 placeholder:text-text-6`}
+                          />
+                        </LabeledRow>
+                        <LabeledRow
+                          label={
+                            <>
+                              소속 <span className="text-red-500">*</span>
+                            </>
+                          }
+                          labelWidth="w-12"
+                          labelTextSize="text-[11px]"
+                        >
+                          <input
+                            type="text"
+                            value={data.affiliation}
+                            onChange={(e) =>
+                              setData((d) => ({ ...d, affiliation: e.target.value }))
+                            }
+                            className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 text-sm`}
+                          />
+                        </LabeledRow>
+                        <LabeledRow
+                          label="포지션"
+                          labelWidth="w-12"
+                          labelTextSize="text-[11px]"
+                        >
+                          <input
+                            type="text"
+                            value={data.jobTitle}
+                            onChange={(e) =>
+                              setData((d) => ({ ...d, jobTitle: e.target.value }))
+                            }
+                            className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 text-sm`}
+                          />
+                        </LabeledRow>
+                        <LabeledRow
+                          label="지역"
+                          labelWidth="w-12"
+                          labelTextSize="text-[11px]"
+                        >
+                          <input
+                            type="text"
+                            value={data.region}
+                            onChange={(e) =>
+                              setData((d) => ({ ...d, region: e.target.value }))
+                            }
+                            className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 text-sm`}
+                          />
+                        </LabeledRow>
+                      </div>
+                    ) : (
+                      <>
+                        {(data.affiliation.trim() || data.jobTitle.trim()) && (
+                          <p className="mt-1 text-xs text-text-5 truncate">
+                            {[data.affiliation.trim(), data.jobTitle.trim()]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+                        {data.region.trim() && (
+                          <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-text-6">
+                            <MapPin size={11} />
+                            {data.region.trim()}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-          {editing && !needsOnboarding && (
-            <div className="mt-4 pt-4 border-t border-dashed border-black/10 dark:border-white/10 space-y-3 text-sm">
-              <label className="flex gap-3 items-baseline">
-                <span className="shrink-0 w-16 text-xs text-text-6">
-                  이름 <span className="text-red-500">*</span>
-                </span>
-                <input
-                  type="text"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  className={`${INPUT_BASE} flex-1 min-w-0 text-text-1`}
-                />
-              </label>
-              <label className="flex gap-3 items-baseline">
-                <span className="shrink-0 w-16 text-xs text-text-6">
-                  역할 <span className="text-red-500">*</span>
-                </span>
-                <input
-                  type="text"
-                  value={roleInput}
-                  onChange={(e) => setRoleInput(e.target.value)}
-                  placeholder="COOC에서의 역할 예) 크리에이터, 브랜드"
-                  className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 placeholder:text-text-6`}
-                />
-              </label>
-            </div>
-          )}
-        </section>
+                {(editing || data.keywords.length > 0) && (
+                  <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5">
+                    {editing ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {data.keywords.map((k) => (
+                          <KeywordChip
+                            key={k}
+                            label={k}
+                            onRemove={() =>
+                              setData((d) => ({
+                                ...d,
+                                keywords: d.keywords.filter((x) => x !== k),
+                              }))
+                            }
+                          />
+                        ))}
+                        {data.keywords.length < 7 && (
+                          <input
+                            type="text"
+                            value={keywordDraft}
+                            onChange={(e) => setKeywordDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === ",") {
+                                e.preventDefault();
+                                const v = keywordDraft.replace(/^#/, "").trim();
+                                if (
+                                  !v ||
+                                  data.keywords.includes(v) ||
+                                  data.keywords.length >= 7
+                                ) {
+                                  setKeywordDraft("");
+                                  return;
+                                }
+                                setData((d) => ({
+                                  ...d,
+                                  keywords: [...d.keywords, v],
+                                }));
+                                setKeywordDraft("");
+                              } else if (
+                                e.key === "Backspace" &&
+                                keywordDraft === "" &&
+                                data.keywords.length > 0
+                              ) {
+                                setData((d) => ({
+                                  ...d,
+                                  keywords: d.keywords.slice(0, -1),
+                                }));
+                              }
+                            }}
+                            placeholder={
+                              data.keywords.length === 0
+                                ? "키워드 입력 후 Enter"
+                                : "+ 추가"
+                            }
+                            className="bg-[#999f54]/5 border border-dashed border-[#999f54]/25 rounded-full outline-none text-sm text-text-1 placeholder:text-[#999f54]/50 px-2.5 py-0.5 flex-1 min-w-[140px] focus:border-solid focus:border-[#999f54]/50 focus:bg-[#999f54]/10 transition-colors"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {data.keywords.map((k) => (
+                          <KeywordChip key={k} label={k} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
 
         {isOnboarded && (
         <>
@@ -2106,31 +2138,85 @@ export default function Profile() {
                 onPatch={(patch) => setData((d) => ({ ...d, ...patch }))}
               />
             ) : type.key === "career" ? (
-              <CareerContent
+              <DatedItemContent<Career>
                 editing={editing}
                 showPreview={showPreview}
                 items={data.career}
                 onPatch={patchCareer}
                 onAdd={addCareer}
                 onRemove={removeCareer}
+                label="경력"
+                dateFieldLabel="기간"
+                renderPreviewDate={(c) => (
+                  <>
+                    {c.startYm ? formatYm(c.startYm) : "----.--"}
+                    <span className="mx-1">~</span>
+                    {c.endYm ? formatYm(c.endYm) : "현재"}
+                  </>
+                )}
+                renderDateEditor={(c, patch) => (
+                  <>
+                    <div className="w-24">
+                      <MonthPicker
+                        value={c.startYm}
+                        onChange={(v) => patch({ startYm: v })}
+                      />
+                    </div>
+                    <span className="text-text-6 text-xs">~</span>
+                    <div className="w-24">
+                      <MonthPicker
+                        value={c.endYm ?? ""}
+                        onChange={(v) => patch({ endYm: v || null })}
+                        emptyLabel="현재"
+                        allowClear
+                      />
+                    </div>
+                  </>
+                )}
               />
             ) : type.key === "awards" ? (
-              <AwardContent
+              <DatedItemContent<Award>
                 editing={editing}
                 showPreview={showPreview}
                 items={data.awards}
                 onPatch={patchAward}
                 onAdd={addAward}
                 onRemove={removeAward}
+                label="수상"
+                dateFieldLabel="연월"
+                renderPreviewDate={(a) =>
+                  a.receivedYm ? formatYm(a.receivedYm) : "----.--"
+                }
+                renderDateEditor={(a, patch) => (
+                  <div className="w-24">
+                    <MonthPicker
+                      value={a.receivedYm}
+                      onChange={(v) => patch({ receivedYm: v })}
+                    />
+                  </div>
+                )}
               />
             ) : type.key === "stats" ? (
-              <EducationContent
+              <DatedItemContent<Stat>
                 editing={editing}
                 showPreview={showPreview}
                 items={data.stats}
                 onPatch={patchEdu}
                 onAdd={addEdu}
                 onRemove={removeEdu}
+                label="학력"
+                dateFieldLabel="연월"
+                renderPreviewDate={(s) =>
+                  s.graduatedYm ? formatYm(s.graduatedYm) : "----.--"
+                }
+                renderDateEditor={(s, patch) => (
+                  <div className="w-24">
+                    <MonthPicker
+                      value={s.graduatedYm}
+                      onChange={(v) => patch({ graduatedYm: v })}
+                    />
+                  </div>
+                )}
               />
             ) : type.key === "photos" ? (
               <PhotosContent
