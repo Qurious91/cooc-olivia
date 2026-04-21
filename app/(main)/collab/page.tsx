@@ -3,7 +3,7 @@
 import { ArrowLeft, Handshake, Pencil, Plus, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Modal from "../../modal";
 import PeriodPicker, { periodFromColumns, periodToColumns } from "../../period-picker";
 import { createCoocRequestChat } from "../../data/chats";
@@ -24,7 +24,15 @@ const OPTIONAL_FIELDS = [
 
 type OptKey = (typeof OPTIONAL_FIELDS)[number]["key"];
 
-export default function NewCollab() {
+export default function NewCollabPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewCollab />
+    </Suspense>
+  );
+}
+
+function NewCollab() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
