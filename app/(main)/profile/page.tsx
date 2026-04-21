@@ -10,6 +10,7 @@ import {
   EyeOff,
   Globe,
   GraduationCap,
+  ArrowUpDown,
   GripVertical,
   Mail,
   MapPin,
@@ -144,7 +145,43 @@ const INPUT_BASE =
 const TEXTAREA_BASE =
   "bg-transparent border border-dashed border-[#999f54]/35 rounded-md px-3 py-2 outline-none transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54] focus:bg-[#999f54]/5";
 
-function SortableSection({
+function ReorderRow({ type }: { type: SectionType }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: type.key });
+  const Icon = ICON_MAP[type.icon] ?? Plus;
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border bg-surface touch-none select-none cursor-grab active:cursor-grabbing ${
+        isDragging
+          ? "border-[#999f54] shadow-lg"
+          : "border-black/10 dark:border-white/10"
+      }`}
+    >
+      <Icon size={14} className="text-[#999f54] shrink-0" />
+      <span className="flex-1 min-w-0 text-sm font-medium text-text-2 truncate">
+        {type.label}
+      </span>
+      <GripVertical size={14} className="text-text-6 shrink-0" />
+    </div>
+  );
+}
+
+function SectionShell({
   type,
   editing,
   onRemove,
@@ -155,55 +192,22 @@ function SortableSection({
   onRemove: (k: SectionKey) => void;
   children?: React.ReactNode;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: type.key, disabled: !editing });
   const Icon = ICON_MAP[type.icon] ?? Plus;
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : undefined,
-  };
-  const activeBorder = isDragging
-    ? "border-[#999f54] shadow-lg"
-    : "hover:shadow-md hover:border-[#999f54]";
-  const activeRail = isDragging
-    ? "bg-[#999f54]/25 dark:bg-[#999f54]/35"
-    : "bg-[#999f54]/12 dark:bg-[#999f54]/20";
-  const stopDrag = (e: React.PointerEvent) => e.stopPropagation();
   return (
     <section
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...(editing ? listeners : {})}
-      className={`mt-2 rounded-xl bg-surface shadow-sm overflow-hidden flex transition-all ${
+      className={`mt-2 rounded-xl bg-surface shadow-sm overflow-hidden ${
         editing
-          ? `border border-dashed border-[#999f54]/50 ${activeBorder} cursor-grab active:cursor-grabbing touch-none select-none`
+          ? "border border-dashed border-[#999f54]/50"
           : "border border-black/10 dark:border-white/10"
       }`}
     >
-      {editing && (
-        <div
-          aria-hidden
-          className={`shrink-0 w-6 border-r border-[#999f54]/25 flex items-center justify-center text-[#999f54] ${activeRail}`}
-        >
-          <GripVertical size={14} strokeWidth={1.75} />
-        </div>
-      )}
-      <div className="flex-1 p-5">
+      <div className="p-5">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-text-1 mb-3">
           <Icon size={16} className="text-[#999f54]" />
           {type.label}
           {editing && (
             <button
               type="button"
-              onPointerDown={stopDrag}
               onClick={() => onRemove(type.key)}
               aria-label={`${type.label} 제거`}
               className="ml-auto inline-flex items-center gap-0.5 text-[11px] font-normal text-text-6 hover:text-red-500"
@@ -925,6 +929,7 @@ export default function Profile() {
   const [data, setData] = useState<ProfileData>(DEFAULT_DATA);
   const [editing, setEditing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [reorderOpen, setReorderOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photosUploading, setPhotosUploading] = useState(false);
@@ -1203,6 +1208,7 @@ export default function Profile() {
     setRoleInput(profile?.role ?? "");
     setEditing(false);
     setPickerOpen(false);
+    setReorderOpen(false);
     setRemoveTarget(null);
     setAvatarMenuOpen(false);
   };
@@ -2072,83 +2078,80 @@ export default function Profile() {
                 </>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setReorderOpen(true)}
+              disabled={orderedSectionTypes.length < 2}
+              className="inline-flex items-center gap-1 text-xs text-text-5 px-3 py-1.5 rounded-full border border-dashed border-black/20 dark:border-white/20 hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ArrowUpDown size={12} /> 순서 바꾸기
+            </button>
           </div>
         )}
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={orderedSectionTypes.map((t) => t.key)}
-            strategy={verticalListSortingStrategy}
+        {orderedSectionTypes.map((type) => (
+          <SectionShell
+            key={type.key}
+            type={type}
+            editing={editing}
+            onRemove={removeSection}
           >
-            {orderedSectionTypes.map((type) => (
-              <SortableSection
-                key={type.key}
-                type={type}
+            {type.key === "position" ? (
+              <CurrentContent
                 editing={editing}
-                onRemove={removeSection}
-              >
-                {type.key === "position" ? (
-                  <CurrentContent
-                    editing={editing}
-                    showPreview={showPreview}
-                    affiliation={data.affiliation}
-                    jobTitle={data.jobTitle}
-                    region={data.region}
-                    onPatch={(patch) => setData((d) => ({ ...d, ...patch }))}
-                  />
-                ) : type.key === "career" ? (
-                  <CareerContent
-                    editing={editing}
-                    showPreview={showPreview}
-                    items={data.career}
-                    onPatch={patchCareer}
-                    onAdd={addCareer}
-                    onRemove={removeCareer}
-                  />
-                ) : type.key === "awards" ? (
-                  <AwardContent
-                    editing={editing}
-                    showPreview={showPreview}
-                    items={data.awards}
-                    onPatch={patchAward}
-                    onAdd={addAward}
-                    onRemove={removeAward}
-                  />
-                ) : type.key === "stats" ? (
-                  <EducationContent
-                    editing={editing}
-                    showPreview={showPreview}
-                    items={data.stats}
-                    onPatch={patchEdu}
-                    onAdd={addEdu}
-                    onRemove={removeEdu}
-                  />
-                ) : type.key === "photos" ? (
-                  <PhotosContent
-                    editing={editing}
-                    photos={photos}
-                    uploading={photosUploading}
-                    onAdd={addPhotos}
-                    onRemove={removePhoto}
-                  />
-                ) : type.key === "menus" ? (
-                  <MenuContent
-                    editing={editing}
-                    showPreview={showPreview}
-                    items={data.menus}
-                    onPatch={patchMenu}
-                    onAdd={addMenus}
-                    onRemove={removeMenu}
-                  />
-                ) : null}
-              </SortableSection>
-            ))}
-          </SortableContext>
-        </DndContext>
+                showPreview={showPreview}
+                affiliation={data.affiliation}
+                jobTitle={data.jobTitle}
+                region={data.region}
+                onPatch={(patch) => setData((d) => ({ ...d, ...patch }))}
+              />
+            ) : type.key === "career" ? (
+              <CareerContent
+                editing={editing}
+                showPreview={showPreview}
+                items={data.career}
+                onPatch={patchCareer}
+                onAdd={addCareer}
+                onRemove={removeCareer}
+              />
+            ) : type.key === "awards" ? (
+              <AwardContent
+                editing={editing}
+                showPreview={showPreview}
+                items={data.awards}
+                onPatch={patchAward}
+                onAdd={addAward}
+                onRemove={removeAward}
+              />
+            ) : type.key === "stats" ? (
+              <EducationContent
+                editing={editing}
+                showPreview={showPreview}
+                items={data.stats}
+                onPatch={patchEdu}
+                onAdd={addEdu}
+                onRemove={removeEdu}
+              />
+            ) : type.key === "photos" ? (
+              <PhotosContent
+                editing={editing}
+                photos={photos}
+                uploading={photosUploading}
+                onAdd={addPhotos}
+                onRemove={removePhoto}
+              />
+            ) : type.key === "menus" ? (
+              <MenuContent
+                editing={editing}
+                showPreview={showPreview}
+                items={data.menus}
+                onPatch={patchMenu}
+                onAdd={addMenus}
+                onRemove={removeMenu}
+              />
+            ) : null}
+          </SectionShell>
+        ))}
 
         {false && (
           <>
@@ -2240,6 +2243,42 @@ export default function Profile() {
             ))}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={reorderOpen}
+        onClose={() => setReorderOpen(false)}
+        title="순서 바꾸기"
+        size="sm"
+      >
+        <p className="text-xs text-text-5 mb-3">
+          길게 눌러 드래그하면 순서를 바꿀 수 있어요.
+        </p>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={orderedSectionTypes.map((t) => t.key)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="flex flex-col gap-2">
+              {orderedSectionTypes.map((t) => (
+                <ReorderRow key={t.key} type={t} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setReorderOpen(false)}
+            className="text-sm px-4 py-2 rounded-full bg-[#999f54] text-[#F2F0DC] hover:bg-[#8a9049]"
+          >
+            완료
+          </button>
+        </div>
       </Modal>
 
       <Modal
