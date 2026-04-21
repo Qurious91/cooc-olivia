@@ -280,7 +280,7 @@ function NewCollab() {
               onChange={(e) => setTitle(e.target.value)}
               required
               aria-required="true"
-              placeholder="예) 시즈널 디저트 코스 공동개발"
+              placeholder="협업 제목"
               className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
             />
           </div>
@@ -295,7 +295,7 @@ function NewCollab() {
               required
               aria-required="true"
               rows={5}
-              placeholder="어떤 협업인지, 기대하는 결과물은 무엇인지 적어주세요."
+              placeholder="협업 내용을 자유롭게"
               className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
             />
             <div className="mt-2">
