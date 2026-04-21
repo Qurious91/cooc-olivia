@@ -143,7 +143,7 @@ const INPUT_BASE =
   "bg-transparent border-b border-dashed border-[#999f54]/35 rounded-none outline-none pb-px transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54]";
 
 const TEXTAREA_BASE =
-  "bg-transparent border border-dashed border-[#999f54]/35 rounded-md px-3 py-2 outline-none transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54] focus:bg-[#999f54]/5";
+  "bg-transparent border border-dashed border-[#999f54]/35 rounded-md px-3 py-2 outline-none transition-colors hover:border-[#999f54]/70 focus:border-solid focus:border-[#999f54] focus:bg-[#999f54]/5 [field-sizing:content]";
 
 function ReorderRow({ type }: { type: SectionType }) {
   const {
@@ -410,7 +410,7 @@ function CareerContent({
               onChange={(e) => onPatch(c.id, { body: e.target.value })}
               onPointerDown={stop}
               rows={2}
-              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0 resize-y`}
+              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
             />
           </label>
           <div className="flex justify-end">
@@ -519,7 +519,7 @@ function AwardContent({
               onChange={(e) => onPatch(a.id, { body: e.target.value })}
               onPointerDown={stop}
               rows={2}
-              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0 resize-y`}
+              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
             />
           </label>
           <div className="flex justify-end">
@@ -628,7 +628,7 @@ function EducationContent({
               onChange={(e) => onPatch(s.id, { body: e.target.value })}
               onPointerDown={stop}
               rows={2}
-              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0 resize-y`}
+              className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
             />
           </label>
           <div className="flex justify-end">
@@ -836,7 +836,7 @@ function MenuContent({
                 onChange={(e) => onPatch(m.id, { body: e.target.value })}
                 onPointerDown={stop}
                 rows={2}
-                className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0 resize-y`}
+                className={`${TEXTAREA_BASE} text-xs flex-1 min-w-0`}
               />
             </label>
             <div className="flex justify-end">
@@ -920,7 +920,7 @@ function TextArea({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       rows={4}
-      className={`${TEXTAREA_BASE} ${className} w-full resize-y`}
+      className={`${TEXTAREA_BASE} ${className} w-full`}
     />
   );
 }
