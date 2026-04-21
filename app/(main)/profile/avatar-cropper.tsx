@@ -9,7 +9,7 @@ const JPEG_QUALITY = 0.88;
 type Props = {
   file: File;
   onCancel: () => void;
-  onConfirm: (url: string) => void;
+  onConfirm: (blob: Blob) => void;
 };
 
 export default function AvatarCropper({ file, onCancel, onConfirm }: Props) {
@@ -90,12 +90,18 @@ export default function AvatarCropper({ file, onCancel, onConfirm }: Props) {
     const srcY = -ty / scale;
     const srcSize = FRAME / scale;
     ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, OUTPUT, OUTPUT);
-    onConfirm(canvas.toDataURL("image/jpeg", JPEG_QUALITY));
+    canvas.toBlob(
+      (blob) => {
+        if (blob) onConfirm(blob);
+      },
+      "image/jpeg",
+      JPEG_QUALITY,
+    );
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl p-5 w-full max-w-sm">
+      <div className="bg-surface rounded-xl p-5 w-full max-w-sm">
         <h3 className="text-sm font-semibold text-text-1 mb-3">프로필 사진 편집</h3>
         <div
           className="relative mx-auto bg-black select-none overflow-hidden touch-none cursor-grab active:cursor-grabbing"
@@ -145,7 +151,7 @@ export default function AvatarCropper({ file, onCancel, onConfirm }: Props) {
           <button
             type="button"
             onClick={onCancel}
-            className="text-sm px-4 py-2 rounded-full border border-black/15 text-text-1 hover:bg-black/5"
+            className="text-sm px-4 py-2 rounded-full border border-black/15 dark:border-white/15 text-text-1 hover:bg-black/5 dark:hover:bg-white/5"
           >
             취소
           </button>

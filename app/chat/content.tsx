@@ -61,7 +61,7 @@ export default function ChatContent() {
 
   if (!id || !room) {
     return (
-      <div className="flex flex-col h-[100dvh] bg-white">
+      <div className="flex flex-col h-[100dvh] bg-surface">
         <main className="flex-1 flex items-center justify-center px-6 text-center">
           <div>
             <p className="text-sm text-text-5">대화를 찾을 수 없어요.</p>
@@ -78,12 +78,12 @@ export default function ChatContent() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-white">
-      <header className="flex items-center gap-2 px-3 py-2.5 border-b border-black/10 shrink-0">
+    <div className="flex flex-col h-[100dvh] bg-surface">
+      <header className="flex items-center gap-2 px-3 py-2.5 border-b border-black/10 dark:border-white/10 shrink-0">
         <Link
           href="/messages"
           aria-label="뒤로"
-          className="p-1.5 rounded-full hover:bg-black/5 text-text-1"
+          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-text-1"
         >
           <ArrowLeft size={20} />
         </Link>
@@ -108,7 +108,7 @@ export default function ChatContent() {
           if (m.from === "system") {
             return (
               <div key={m.id} className="text-center">
-                <span className="inline-block text-[11px] px-2.5 py-1 rounded-full bg-[#999f54]/15 text-[#4a4d22]">
+                <span className="inline-block text-[11px] px-2.5 py-1 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8]">
                   {m.text}
                 </span>
               </div>
@@ -125,7 +125,7 @@ export default function ChatContent() {
                   className={`inline-block px-3 py-2 rounded-2xl text-base ${
                     mine
                       ? "bg-[#999f54] text-[#F2F0DC] rounded-br-sm"
-                      : "bg-black/5 text-text-1 rounded-bl-sm"
+                      : "bg-black/5 dark:bg-white/5 text-text-1 rounded-bl-sm"
                   }`}
                 >
                   {m.text}
@@ -142,14 +142,14 @@ export default function ChatContent() {
           e.preventDefault();
           send();
         }}
-        className="bg-white border-t border-black/10 px-3 py-2.5 flex items-center gap-2 max-w-xl w-full mx-auto shrink-0"
+        className="bg-surface border-t border-black/10 dark:border-white/10 px-3 py-2.5 flex items-center gap-2 max-w-xl w-full mx-auto shrink-0"
       >
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onFocus={onInputFocus}
           placeholder="메시지 입력"
-          className="flex-1 px-3 py-2 rounded-full bg-black/5 text-base text-text-1 placeholder:text-text-6 focus:outline-none"
+          className="flex-1 px-3 py-2 rounded-full bg-black/5 dark:bg-white/5 text-base text-text-1 placeholder:text-text-6 focus:outline-none"
         />
         <button
           type="submit"

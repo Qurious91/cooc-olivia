@@ -1,12 +1,36 @@
 "use client";
 
-import { User } from "lucide-react";
+import {
+  ChefHat,
+  FlaskConical,
+  Handshake,
+  Store,
+  User,
+  UserPlus,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Splash from "../../splash";
-import { HOME_CATEGORIES, CREATOR_CATEGORIES, BRAND_CATEGORIES } from "../../data/categories";
+import { CREATOR_CATEGORIES, BRAND_CATEGORIES } from "../../data/categories";
+import { createClient } from "@/lib/supabase/client";
 import HeroSlider, { type HeroSlide } from "./hero-slider";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  UserPlus,
+  FlaskConical,
+  ChefHat,
+  Store,
+  Handshake,
+};
+
+type CollabKindRow = {
+  key: string;
+  label: string;
+  position: number;
+  icon: string;
+};
 
 const TABS = ["메인", "F&B 크리에이터", "브랜드"] as const;
 
@@ -69,11 +93,23 @@ const BRAND_SLIDES: HeroSlide[] = [
 
 export default function Home() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("메인");
+  const [collabKinds, setCollabKinds] = useState<CollabKindRow[]>([]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const { data } = await supabase
+        .from("collab_kinds")
+        .select("key, label, position, icon")
+        .order("position");
+      if (data) setCollabKinds(data as CollabKindRow[]);
+    })();
+  }, []);
 
   return (
     <>
       <Splash />
-      <div className="flex gap-2 px-4 py-2 border-b border-black/5 overflow-x-auto">
+      <div className="flex gap-2 px-4 py-2 border-b border-black/5 dark:border-white/5 overflow-x-auto">
         {TABS.map((k) => (
           <button
             key={k}
@@ -81,7 +117,7 @@ export default function Home() {
             className={`px-3 py-1 rounded-full text-xs whitespace-nowrap border ${
               tab === k
                 ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
-                : "bg-white text-text-4 border-black/15"
+                : "bg-surface text-text-4 border-black/15 dark:border-white/15"
             }`}
           >
             {k}
@@ -94,7 +130,7 @@ export default function Home() {
           <div className="space-y-3">
             <HeroSlider
               slides={MAIN_SLIDES}
-              minHeight="min-h-80"
+              minHeight="min-h-64"
               sharedCaption={{
                 chip: (
                   <>
@@ -111,28 +147,31 @@ export default function Home() {
               }}
             />
 
-            <section className="rounded-xl bg-white px-4 py-3 shadow-sm border border-black/5">
+            <section className="rounded-xl bg-surface px-4 py-3 shadow-sm border border-black/5 dark:border-white/5">
               <h3 className="text-sm font-semibold text-text-1 mb-2">어떤 협업을 원하시나요?</h3>
               <div className="grid grid-cols-5 gap-2">
-                {HOME_CATEGORIES.map(({ Icon, label }) => (
-                  <Link
-                    key={label}
-                    href={`/explore?kind=${encodeURIComponent(label)}`}
-                    className="flex flex-col items-center justify-center gap-1 py-1 text-text-1 group"
-                  >
-                    <span className="flex items-center justify-center w-11 h-11 rounded-full group-hover:bg-[#999f54]/15">
-                      <Icon size={22} />
-                    </span>
-                    <span className="text-[11px]">{label}</span>
-                  </Link>
-                ))}
+                {collabKinds.map((k) => {
+                  const Icon = ICON_MAP[k.icon] ?? Handshake;
+                  return (
+                    <Link
+                      key={k.key}
+                      href={`/explore?kind=${encodeURIComponent(k.label)}`}
+                      className="flex flex-col items-center justify-center gap-1 py-1 text-text-1 group"
+                    >
+                      <span className="flex items-center justify-center w-11 h-11 rounded-full group-hover:bg-[#999f54]/15 dark:hover:bg-[#999f54]/25">
+                        <Icon size={22} />
+                      </span>
+                      <span className="text-[11px]">{k.label}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </section>
 
-            <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5">
+            <section className="rounded-xl bg-surface p-6 shadow-sm border border-black/5 dark:border-white/5">
               <div className="flex items-end justify-between mb-3">
                 <h3 className="text-base font-semibold text-text-1">진행중인 협업</h3>
-                <button className="text-xs text-text-5">전체보기</button>
+                <Link href="/ongoing" className="text-xs text-text-5 hover:text-text-3">전체보기</Link>
               </div>
               <ul className="divide-y divide-black/5">
                 {[
@@ -156,7 +195,7 @@ export default function Home() {
                         <div className="text-xs text-text-5 truncate">{c.a} × {c.b}</div>
                       </div>
                     </div>
-                    <span className="ml-3 shrink-0 text-xs px-2.5 py-1 rounded-full bg-[#999f54]/15 text-[#4a4d22]">
+                    <span className="ml-3 shrink-0 text-xs px-2.5 py-1 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8]">
                       {c.tag}
                     </span>
                   </li>
@@ -168,14 +207,14 @@ export default function Home() {
           <div className="space-y-3">
             <HeroSlider slides={CREATOR_SLIDES} minHeight="min-h-52" />
 
-            <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5">
+            <section className="rounded-xl bg-surface p-6 shadow-sm border border-black/5 dark:border-white/5">
               <div className="grid grid-cols-4 gap-4">
                 {CREATOR_CATEGORIES.map(({ Icon, label }) => (
                   <button
                     key={label}
                     className="flex flex-col items-center justify-center gap-2 py-3 text-text-1 group"
                   >
-                    <span className="flex items-center justify-center w-14 h-14 rounded-full group-hover:bg-[#999f54]/15">
+                    <span className="flex items-center justify-center w-14 h-14 rounded-full group-hover:bg-[#999f54]/15 dark:hover:bg-[#999f54]/25">
                       <Icon size={28} />
                     </span>
                     <span className="text-xs">{label}</span>
@@ -188,14 +227,14 @@ export default function Home() {
           <div className="space-y-3">
             <HeroSlider slides={BRAND_SLIDES} minHeight="min-h-52" />
 
-            <section className="rounded-xl bg-white p-6 shadow-sm border border-black/5">
+            <section className="rounded-xl bg-surface p-6 shadow-sm border border-black/5 dark:border-white/5">
               <div className="grid grid-cols-4 gap-4">
                 {BRAND_CATEGORIES.map(({ Icon, label }) => (
                   <button
                     key={label}
                     className="flex flex-col items-center justify-center gap-2 py-3 text-text-1 group"
                   >
-                    <span className="flex items-center justify-center w-14 h-14 rounded-full group-hover:bg-[#999f54]/15">
+                    <span className="flex items-center justify-center w-14 h-14 rounded-full group-hover:bg-[#999f54]/15 dark:hover:bg-[#999f54]/25">
                       <Icon size={28} />
                     </span>
                     <span className="text-xs">{label}</span>

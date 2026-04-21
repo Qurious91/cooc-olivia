@@ -19,7 +19,7 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 inset-x-0 h-16 bg-white border-t border-black/10 flex items-center justify-around text-text-6 z-30">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 h-16 bg-background border-t border-border flex items-center justify-around text-text-6 z-30">
         <Link href="/home" aria-label="Home" className="p-2"><HomeIcon size={24} /></Link>
         <Link href="/wip" aria-label="Search" className="p-2"><Search size={24} /></Link>
         <button aria-label="Create" className="p-2" onClick={() => setCreateOpen(true)}>
@@ -37,7 +37,7 @@ export default function BottomNav() {
           onClick={() => setCreateOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-xs p-6 shadow-xl"
+            className="bg-surface rounded-2xl w-full max-w-xs p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -58,7 +58,7 @@ export default function BottomNav() {
                   </>
                 );
                 const baseClass =
-                  "text-left flex items-center gap-3 p-3 rounded-xl border border-black/10 hover:bg-[#999f54]/10";
+                  "text-left flex items-center gap-3 p-3 rounded-xl border border-black/10 dark:border-white/10 hover:bg-[#999f54]/10";
                 if (title === "같이 하고 싶어요") {
                   return (
                     <Link

@@ -1,89 +1,151 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { CalendarClock, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import Modal from "../../modal";
+import { formatPeriod, periodFromColumns } from "../../period-picker";
+import { type CollabKind } from "../../data/collabs";
+import { createClient } from "@/lib/supabase/client";
 
-type ChecklistItem = { id: string; label: string; done: boolean };
+type Role = "host" | "member";
 
-type Work = {
+type WorkItem = {
   id: string;
+  kind: CollabKind;
   title: string;
-  partner: string;
-  status: string;
-  due: string;
   desc: string;
-  checklist: ChecklistItem[];
+  role: Role;
+  partner: string;
+  period: string | null;
+  location: string;
 };
 
-const INITIAL_WORKS: Work[] = [
-  {
-    id: "w1",
-    title: "시즈널 디저트 코스 공동개발",
-    partner: "이파티시에",
-    status: "진행중",
-    due: "2026-05-02",
-    desc:
-      "봄 시즈널 재료를 활용한 디저트 코스 3종을 함께 개발합니다. 매장 정규 메뉴로 편입하는 것을 목표로, 시식회 결과를 바탕으로 원가와 플레이팅을 다듬습니다.",
-    checklist: [
-      { id: "c1", label: "컨셉/테마 확정", done: true },
-      { id: "c2", label: "1차 레시피 개발", done: true },
-      { id: "c3", label: "시식 및 피드백", done: true },
-      { id: "c4", label: "원가 검토", done: false },
-      { id: "c5", label: "최종 플레이팅 확정", done: false },
-    ],
-  },
-  {
-    id: "w2",
-    title: "와인 페어링 시그니처 음료",
-    partner: "최소믈리에",
-    status: "리뷰",
-    due: "2026-04-28",
-    desc:
-      "시그니처 코스에 맞는 와인 페어링을 3단계로 구성합니다. 블라인드 테이스팅을 거쳐 테이블당 제안 리스트를 확정하는 단계입니다.",
-    checklist: [
-      { id: "c1", label: "페어링 방향성 논의", done: true },
-      { id: "c2", label: "후보 와인 리스트업", done: true },
-      { id: "c3", label: "블라인드 테이스팅", done: false },
-      { id: "c4", label: "최종 페어링 확정", done: false },
-    ],
-  },
-  {
-    id: "w3",
-    title: "팝업 다이닝 3일간 콜라보",
-    partner: "한브랜드",
-    status: "기획",
-    due: "2026-06-10",
-    desc:
-      "한브랜드 쇼룸에서 3일간 운영하는 팝업 다이닝. 브랜드 시즌 캠페인과 연계해 예약제 코스로 진행하며, 현장 운영과 SNS 홍보를 함께 맡습니다.",
-    checklist: [
-      { id: "c1", label: "장소/일정 픽스", done: true },
-      { id: "c2", label: "메뉴 구성 초안", done: false },
-      { id: "c3", label: "예약 채널 오픈", done: false },
-      { id: "c4", label: "홍보 컨텐츠 제작", done: false },
-      { id: "c5", label: "운영 스태프 배치", done: false },
-    ],
-  },
-  {
-    id: "w4",
-    title: "브런치 메뉴 신규 라인업",
-    partner: "오베이커",
-    status: "마감임박",
-    due: "2026-04-20",
-    desc:
-      "오베이커의 베이커리 기반 브런치 5종 라인업. 오픈 런칭일 전까지 메뉴판 인쇄와 리허설을 마무리해야 합니다.",
-    checklist: [
-      { id: "c1", label: "시즈널 재료 소싱", done: true },
-      { id: "c2", label: "메뉴 5종 개발", done: true },
-      { id: "c3", label: "사진 촬영", done: true },
-      { id: "c4", label: "메뉴판 인쇄", done: true },
-      { id: "c5", label: "오픈 전 리허설", done: false },
-    ],
-  },
-];
-
-export default function ActiveWorks() {
-  const [works, setWorks] = useState<Work[]>(INITIAL_WORKS);
+export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void }) {
+  const [items, setItems] = useState<WorkItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [loaded, setLoaded] = useState(false);
+  const [completeTarget, setCompleteTarget] = useState<WorkItem | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoaded(true);
+        return;
+      }
+
+      const [hostRes, memberRes] = await Promise.all([
+        supabase
+          .from("collabs")
+          .select(
+            "id, kind, author, title, description, period_start, period_end, period_start_time, period_end_time, location, created_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation)",
+          )
+          .eq("author_id", user.id)
+          .eq("status", "in_progress")
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("collab_applications")
+          .select(
+            "id, collabs!inner(id, author, title, description, period_start, period_end, period_start_time, period_end_time, location, status, updated_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation))",
+          )
+          .eq("applicant_id", user.id)
+          .eq("status", "accepted")
+          .eq("collabs.status", "in_progress"),
+      ]);
+
+      if (hostRes.error) {
+        console.error(
+          "[active-works] host select failed",
+          hostRes.error.message,
+          hostRes.error.details,
+          hostRes.error.hint,
+          hostRes.error.code,
+        );
+      }
+      if (memberRes.error) {
+        console.error(
+          "[active-works] member select failed",
+          memberRes.error.message,
+          memberRes.error.details,
+          memberRes.error.hint,
+          memberRes.error.code,
+        );
+      }
+
+      const mapHost = (r: any): WorkItem => {
+        const name = r.profiles?.name?.trim() ?? "";
+        const aff = r.profiles?.affiliation?.trim() ?? "";
+        const partner =
+          r.author === "소속"
+            ? aff || name || "익명"
+            : r.author === "둘 다"
+            ? [aff, name].filter(Boolean).join(" · ") || "익명"
+            : name || "익명";
+        return {
+          id: r.id,
+          kind: (r.collab_kinds?.label ?? "") as CollabKind,
+          title: r.title,
+          desc: r.description,
+          role: "host",
+          partner,
+          period: periodFromColumns({
+            period_start: r.period_start,
+            period_end: r.period_end,
+            period_start_time: r.period_start_time,
+            period_end_time: r.period_end_time,
+          }),
+          location: r.location ?? "",
+        };
+      };
+
+      const mapMember = (row: any): WorkItem | null => {
+        const c = row.collabs;
+        if (!c) return null;
+        const name = c.profiles?.name?.trim() ?? "";
+        const aff = c.profiles?.affiliation?.trim() ?? "";
+        const partner =
+          c.author === "소속"
+            ? aff || name || "익명"
+            : c.author === "둘 다"
+            ? [aff, name].filter(Boolean).join(" · ") || "익명"
+            : name || "익명";
+        return {
+          id: c.id,
+          kind: (c.collab_kinds?.label ?? "") as CollabKind,
+          title: c.title,
+          desc: c.description,
+          role: "member",
+          partner,
+          period: periodFromColumns({
+            period_start: c.period_start,
+            period_end: c.period_end,
+            period_start_time: c.period_start_time,
+            period_end_time: c.period_end_time,
+          }),
+          location: c.location ?? "",
+        };
+      };
+
+      const hostItems = (hostRes.data ?? []).map(mapHost);
+      const memberItems = (memberRes.data ?? [])
+        .map(mapMember)
+        .filter((x): x is WorkItem => x !== null);
+
+      const seen = new Set<string>();
+      const merged: WorkItem[] = [];
+      for (const it of [...hostItems, ...memberItems]) {
+        if (seen.has(it.id)) continue;
+        seen.add(it.id);
+        merged.push(it);
+      }
+      setItems(merged);
+      setLoaded(true);
+    })();
+  }, []);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -93,56 +155,106 @@ export default function ActiveWorks() {
       return next;
     });
 
-  const toggleItem = (workId: string, itemId: string) =>
-    setWorks((prev) =>
-      prev.map((w) =>
-        w.id === workId
-          ? {
-              ...w,
-              checklist: w.checklist.map((c) =>
-                c.id === itemId ? { ...c, done: !c.done } : c,
-              ),
-            }
-          : w,
-      ),
+  const confirmComplete = async () => {
+    const w = completeTarget;
+    if (!w) return;
+    setCompleteTarget(null);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("collabs")
+      .update({ status: "done" })
+      .eq("id", w.id);
+    if (error) {
+      console.error(
+        "[active-works] complete failed",
+        error.message,
+        error.details,
+        error.hint,
+        error.code,
+      );
+      return;
+    }
+    setItems((prev) => prev.filter((i) => i.id !== w.id));
+    onCompleted?.();
+  };
+
+  if (!loaded) return null;
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-6 text-center">
+        <p className="text-xs text-text-5">
+          진행 중인 협업이 없어요.{" "}
+          <Link className="text-[#4a4d22] dark:text-[#d4d8a8] underline" href="/explore">
+            탐색하러 가기
+          </Link>
+        </p>
+      </div>
     );
+  }
 
   return (
-    <ul className="space-y-3">
-      {works.map((w) => {
-        const total = w.checklist.length;
-        const done = w.checklist.filter((c) => c.done).length;
-        const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    <>
+      <ul className="space-y-3">
+        {items.map((w) => {
         const open = expanded.has(w.id);
+        const periodLabel = formatPeriod(w.period);
         return (
           <li
             key={w.id}
-            className="rounded-xl border border-black/10 bg-white shadow-sm p-4"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
+              toggleExpand(w.id);
+            }}
+            className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-4 cursor-pointer"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[11px] text-text-5 truncate">
-                  with {w.partner}
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-text-5 flex items-center gap-1.5">
+                  <span className="truncate">
+                    {w.role === "host" ? w.partner : `with ${w.partner}`}
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]">
+                    {w.kind}
+                  </span>
                 </div>
-                <div className="mt-0.5 text-sm font-semibold text-text-1 truncate">
+                <div className="mt-2 text-lg font-semibold text-text-1 truncate">
                   {w.title}
                 </div>
+                {(periodLabel || w.location) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-6">
+                    {periodLabel && (
+                      <span className="inline-flex items-center gap-1 min-w-0">
+                        <CalendarClock size={11} className="shrink-0" />
+                        <span className="truncate">{periodLabel}</span>
+                      </span>
+                    )}
+                    {w.location && (
+                      <span className="inline-flex items-center gap-1 min-w-0">
+                        <MapPin size={11} className="shrink-0" />
+                        <span className="truncate">{w.location}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+              <span
+                className={`shrink-0 inline-flex items-center text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                  w.role === "host"
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                    : "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border-[#999f54]/30 dark:border-[#999f54]/40"
+                }`}
+              >
+                {w.role === "host" ? "주최" : "참여"}
+              </span>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-5">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 text-[#4a4d22]">
-                {w.status}
-              </span>
-              <span>마감 {w.due}</span>
-              <span>
-                {done}/{total} 완료
-              </span>
+            <div className="mt-2 flex justify-end">
               <button
                 onClick={() => toggleExpand(w.id)}
                 aria-expanded={open}
                 aria-label={open ? "접기" : "자세히"}
-                className="ml-auto inline-flex items-center gap-0.5 text-[#4a4d22]"
+                className="inline-flex items-center gap-0.5 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]"
               >
                 자세히
                 <ChevronDown
@@ -152,57 +264,69 @@ export default function ActiveWorks() {
               </button>
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#999f54] transition-[width]"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <span className="text-[11px] text-text-6 w-9 text-right">{pct}%</span>
-            </div>
-
-            {open && (
-              <div className="mt-3 pt-3 border-t border-black/5 space-y-3">
-                <ul className="space-y-1.5">
-                  {w.checklist.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        onClick={() => toggleItem(w.id, c.id)}
-                        aria-pressed={c.done}
-                        className="flex items-start gap-2 w-full text-left py-1 -my-1 rounded hover:bg-black/[0.02]"
-                      >
-                        <span
-                          className={`mt-0.5 w-4 h-4 shrink-0 rounded border inline-flex items-center justify-center ${
-                            c.done
-                              ? "bg-[#999f54] border-[#999f54]"
-                              : "border-black/20 bg-white"
-                          }`}
-                        >
-                          {c.done && <Check size={12} className="text-[#F2F0DC]" />}
-                        </span>
-                        <span
-                          className={`text-xs ${
-                            c.done ? "text-text-6 line-through" : "text-text-4"
-                          }`}
-                        >
-                          {c.label}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            {open && (w.desc || w.role === "host") && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3"
+              >
                 {w.desc && (
-                  <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed pt-3 border-t border-black/5">
+                  <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
                     {w.desc}
                   </p>
+                )}
+                {w.role === "host" && (
+                  <button
+                    type="button"
+                    onClick={() => setCompleteTarget(w)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
+                  >
+                    <CheckCircle2 size={14} />
+                    완료하기
+                  </button>
                 )}
               </div>
             )}
           </li>
         );
       })}
-    </ul>
+      </ul>
+
+      <Modal
+        open={!!completeTarget}
+        onClose={() => setCompleteTarget(null)}
+        title="완료하기"
+        size="sm"
+      >
+        {completeTarget && (
+          <div className="flex flex-col gap-5">
+            <div className="text-sm text-text-3 leading-relaxed space-y-2">
+              <p>
+                <span className="font-semibold text-text-1">{completeTarget.title}</span>
+                을(를) 완료 처리합니다.
+              </p>
+              <p className="text-xs text-text-5">
+                완료한 협업 섹션으로 이동하며, 이후 상태는 되돌릴 수 없어요.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCompleteTarget(null)}
+                className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmComplete}
+                className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
+              >
+                완료 처리
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }

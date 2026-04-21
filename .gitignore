@@ -41,5 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # local planning docs
-/BACKEND-PLAN.md
-/FRONT-END-PLAN.md
+/PLAN-*.md
+
+# supabase local config & migrations
+/supabase/

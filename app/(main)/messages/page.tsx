@@ -60,7 +60,7 @@ export default function MessagesPage() {
               <li key={r.id} className="group relative">
                 <Link
                   href={`/chat?id=${encodeURIComponent(r.id)}`}
-                  className="flex items-center gap-3 px-4 py-3 active:bg-black/5 hover:bg-black/[0.02]"
+                  className="flex items-center gap-3 px-4 py-3 active:bg-black/5 dark:bg-white/5 dark:active:bg-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
                 >
                   <span className="w-12 h-12 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
                     <User size={22} strokeWidth={1.75} />
@@ -81,7 +81,7 @@ export default function MessagesPage() {
                       {previewOf(r)}
                     </div>
                     {r.sourceTitle && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[#4a4d22] bg-[#999f54]/10 px-1.5 py-0.5 rounded">
+                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[#4a4d22] dark:text-[#d4d8a8] bg-[#999f54]/10 dark:bg-[#999f54]/20 px-1.5 py-0.5 rounded">
                         {r.sourceTitle}
                       </div>
                     )}

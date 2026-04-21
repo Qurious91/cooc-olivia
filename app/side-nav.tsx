@@ -1,32 +1,49 @@
 "use client";
 
-import { Bell, LogOut, MoreVertical, Moon, Sun, User, UserPlus } from "lucide-react";
+import {
+  Bell,
+  Briefcase,
+  LogOut,
+  MessageCircle,
+  Moon,
+  Sun,
+  User,
+  UserPlus,
+} from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
+
+const NAV_ITEMS = [
+  { href: "/messages", label: "채팅", Icon: MessageCircle },
+  { href: "/projects", label: "프로젝트", Icon: Briefcase },
+] as const;
+
+const ROW =
+  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-text-4 hover:bg-black/5 dark:hover:bg-white/5 w-full text-left";
 
 type NotifEntry = {
   c: { id: string; title: string; kind: string };
   count: number;
 };
 
-export default function HeaderActions() {
+export default function SideNav() {
+  const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const [dark, setDark] = useState(false);
   const [notifs, setNotifs] = useState<NotifEntry[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [notifOpen, setNotifOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [notifPos, setNotifPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-  const notifBtnRef = useRef<HTMLButtonElement>(null);
+  const [notifPos, setNotifPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const bellBtnRef = useRef<HTMLButtonElement>(null);
   const notifPanelRef = useRef<HTMLDivElement>(null);
-  const menuBtnRef = useRef<HTMLButtonElement>(null);
-  const menuPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -53,7 +70,7 @@ export default function HeaderActions() {
         .eq("collabs.author_id", user.id);
       if (error) {
         console.error(
-          "[header-actions] notif select failed",
+          "[side-nav] notif select failed",
           error.message,
           error.details,
           error.hint,
@@ -80,6 +97,21 @@ export default function HeaderActions() {
     return () => window.removeEventListener("storage", onStorage);
   }, [supabase]);
 
+  useEffect(() => {
+    if (!notifOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (
+        bellBtnRef.current?.contains(t) ||
+        notifPanelRef.current?.contains(t)
+      )
+        return;
+      setNotifOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [notifOpen]);
+
   const markSeen = (ids: string[]) => {
     setSeen((prev) => {
       const next = new Set(prev);
@@ -91,19 +123,6 @@ export default function HeaderActions() {
     });
   };
 
-  useEffect(() => {
-    if (!notifOpen && !menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (notifOpen && (notifBtnRef.current?.contains(t) || notifPanelRef.current?.contains(t))) return;
-      if (menuOpen && (menuBtnRef.current?.contains(t) || menuPanelRef.current?.contains(t))) return;
-      setNotifOpen(false);
-      setMenuOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [notifOpen, menuOpen]);
-
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
@@ -112,31 +131,14 @@ export default function HeaderActions() {
   };
 
   const toggleNotif = () => {
-    if (!notifOpen && notifBtnRef.current) {
-      const rect = notifBtnRef.current.getBoundingClientRect();
-      setNotifPos({
-        top: rect.bottom + 8,
-        right: Math.max(8, window.innerWidth - rect.right),
-      });
+    if (!notifOpen && bellBtnRef.current) {
+      const rect = bellBtnRef.current.getBoundingClientRect();
+      setNotifPos({ top: rect.top, left: rect.right + 8 });
     }
-    setMenuOpen(false);
     setNotifOpen((v) => !v);
   };
 
-  const toggleMenu = () => {
-    if (!menuOpen && menuBtnRef.current) {
-      const rect = menuBtnRef.current.getBoundingClientRect();
-      setMenuPos({
-        top: rect.bottom + 8,
-        right: Math.max(8, window.innerWidth - rect.right),
-      });
-    }
-    setNotifOpen(false);
-    setMenuOpen((v) => !v);
-  };
-
   const handleSignOut = async () => {
-    setMenuOpen(false);
     await supabase.auth.signOut();
     router.push("/signin");
     router.refresh();
@@ -158,43 +160,69 @@ export default function HeaderActions() {
   };
 
   return (
-    <div className="flex items-center gap-1 text-text-6">
-      <button
-        ref={notifBtnRef}
-        onClick={toggleNotif}
-        aria-label="Notifications"
-        aria-expanded={notifOpen}
-        className="relative p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-      >
-        <Bell size={20} />
-        {pending > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none inline-flex items-center justify-center">
-            {pending > 99 ? "99+" : pending}
-          </span>
-        )}
-      </button>
-      <Link
-        href="/profile"
-        aria-label="Profile"
-        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-      >
-        <User size={20} />
-      </Link>
-      <button
-        ref={menuBtnRef}
-        onClick={toggleMenu}
-        aria-label="More"
-        aria-expanded={menuOpen}
-        className="p-1.5 -mx-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
-      >
-        <MoreVertical size={20} />
-      </button>
+    <>
+      <aside className="hidden min-[1100px]:flex fixed left-0 top-0 bottom-0 w-56 border-r border-[#999f54]/30 bg-background flex-col z-30">
+        <Link
+          href="/home"
+          className="px-5 py-4 text-2xl font-bold tracking-tight text-text-1 border-b border-[#999f54]/30"
+        >
+          COOC
+        </Link>
+        <nav className="flex-1 p-3 flex flex-col gap-1">
+          {NAV_ITEMS.map(({ href, label, Icon }) => {
+            const active = pathname?.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                  active
+                    ? "bg-[#999f54]/15 text-[#4a4d22] dark:text-[#d4d8a8] font-semibold"
+                    : "text-text-4 hover:bg-black/5 dark:hover:bg-white/5"
+                }`}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="p-3 border-t border-black/5 dark:border-white/5 flex flex-col gap-1">
+          <button
+            ref={bellBtnRef}
+            type="button"
+            onClick={toggleNotif}
+            aria-expanded={notifOpen}
+            className={`${ROW} relative`}
+          >
+            <Bell size={18} />
+            알림
+            {pending > 0 && (
+              <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none inline-flex items-center justify-center">
+                {pending > 99 ? "99+" : pending}
+              </span>
+            )}
+          </button>
+          <Link href="/profile" className={ROW}>
+            <User size={18} />
+            프로필
+          </Link>
+          <button type="button" onClick={toggleTheme} className={ROW}>
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+            {dark ? "라이트 모드" : "다크 모드"}
+          </button>
+          <button type="button" onClick={handleSignOut} className={ROW}>
+            <LogOut size={18} />
+            로그아웃
+          </button>
+        </div>
+      </aside>
       {mounted && notifOpen &&
         createPortal(
           <div
             ref={notifPanelRef}
             role="menu"
-            style={{ top: notifPos.top, right: notifPos.right }}
+            style={{ top: notifPos.top, left: notifPos.left }}
             className="fixed w-72 rounded-xl border border-border bg-surface shadow-lg z-[60] overflow-hidden"
           >
             <div className="px-3 py-2 border-b border-black/5 text-[11px] text-text-5">
@@ -242,33 +270,6 @@ export default function HeaderActions() {
           </div>,
           document.body,
         )}
-      {mounted && menuOpen &&
-        createPortal(
-          <div
-            ref={menuPanelRef}
-            role="menu"
-            style={{ top: menuPos.top, right: menuPos.right }}
-            className="fixed w-40 rounded-xl border border-border bg-surface shadow-lg z-[60] overflow-hidden"
-          >
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-1 hover:bg-black/[0.03]"
-            >
-              {dark ? <Sun size={16} className="text-text-5" /> : <Moon size={16} className="text-text-5" />}
-              {dark ? "라이트 모드" : "다크 모드"}
-            </button>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-1 border-t border-black/5 hover:bg-black/[0.03]"
-            >
-              <LogOut size={16} className="text-text-5" />
-              로그아웃
-            </button>
-          </div>,
-          document.body,
-        )}
-    </div>
+    </>
   );
 }

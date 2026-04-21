@@ -77,7 +77,7 @@ export default function PhotoUpload() {
         {photos.map((p) => (
           <div
             key={p.id}
-            className="relative aspect-square rounded-lg overflow-hidden border border-black/10 bg-black/5"
+            className="relative aspect-square rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt="" className="w-full h-full object-cover" />
@@ -95,7 +95,7 @@ export default function PhotoUpload() {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="aspect-square rounded-lg border-2 border-dashed border-black/15 text-text-5 flex flex-col items-center justify-center gap-1 hover:bg-[#999f54]/10 hover:border-[#999f54]/40 disabled:opacity-50 disabled:cursor-wait"
+          className="aspect-square rounded-lg border-2 border-dashed border-black/15 dark:border-white/15 text-text-5 flex flex-col items-center justify-center gap-1 hover:bg-[#999f54]/10 hover:border-[#999f54]/40 disabled:opacity-50 disabled:cursor-wait"
         >
           <Plus size={20} />
           <span className="text-[11px]">{busy ? "처리중…" : "사진 추가"}</span>

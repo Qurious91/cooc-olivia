@@ -36,7 +36,7 @@ export default function Modal({
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-2xl w-full ${SIZE[size]} ${
+        className={`bg-surface rounded-2xl w-full ${SIZE[size]} ${
           fullHeight ? "h-[80vh]" : ""
         } p-6 shadow-xl flex flex-col`}
         onClick={(e) => e.stopPropagation()}
