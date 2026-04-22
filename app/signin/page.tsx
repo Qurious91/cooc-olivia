@@ -32,13 +32,19 @@ export default function Signin() {
       return;
     }
     setPending(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setPending(false);
-    if (error) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+      setPending(false);
       setError("이메일 또는 비밀번호가 올바르지 않아요.");
       return;
     }
-    router.push("/home");
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    setPending(false);
+    router.push(profile?.is_admin ? "/admin" : "/home");
     router.refresh();
   };
 
