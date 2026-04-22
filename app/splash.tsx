@@ -10,7 +10,7 @@ export default function Splash() {
   useEffect(() => {
     let seen = false;
     try {
-      seen = window.localStorage.getItem(SEEN_KEY) === "1";
+      seen = window.sessionStorage.getItem(SEEN_KEY) === "1";
     } catch {}
     if (seen) {
       setPhase("done");
@@ -22,7 +22,7 @@ export default function Splash() {
     const t2 = setTimeout(() => {
       setPhase("done");
       try {
-        window.localStorage.setItem(SEEN_KEY, "1");
+        window.sessionStorage.setItem(SEEN_KEY, "1");
       } catch {}
     }, 3000);
     return () => {
