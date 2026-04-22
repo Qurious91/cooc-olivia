@@ -80,9 +80,7 @@ textarea {
   field-sizing: content;
 }
 
-/* Splash: 첫 페인트부터 홈을 덮는 브랜드 인트로.
-   3초 단일 CSS 애니메이션: 0-1s 페이드인, 1-1.5s 홀드, 1.5-3s collapse+페이드아웃.
-   재방문자는 layout.tsx의 inline script가 html.splash-hidden을 붙여 즉시 숨김. */
+/* Splash intro overlay */
 .splash {
   position: fixed;
   inset: 0;
