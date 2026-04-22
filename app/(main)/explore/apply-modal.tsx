@@ -195,7 +195,7 @@ export default function ApplyModal({
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="어떤 역할로 참여하고 싶은지 간단히 남겨주세요."
+                  placeholder="상대방에게 보낼 메시지를 작성해주세요."
                   rows={4}
                   className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent resize-none"
                 />
