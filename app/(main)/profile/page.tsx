@@ -1714,7 +1714,7 @@ export default function Profile() {
 
   return (
     <>
-      <main className="flex-1 px-4 pt-6 pb-24 md:pb-8 max-w-2xl w-full mx-auto">
+      <main className="flex-1 px-4 pt-6 pb-24 min-[1100px]:pb-8 max-w-2xl w-full mx-auto">
         {isOnboarded && (
           <div className="flex justify-end gap-2 mb-2">
             {editing ? (

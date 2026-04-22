@@ -11,7 +11,7 @@ export default function Search() {
   const [scope, setScope] = useState<Scope>("전체");
 
   return (
-    <main className="flex-1 flex flex-col px-4 pt-3 pb-24 md:pb-8">
+    <main className="flex-1 flex flex-col px-4 pt-3 pb-24 min-[1100px]:pb-8">
       <div className="relative">
         <SearchIcon
           size={16}

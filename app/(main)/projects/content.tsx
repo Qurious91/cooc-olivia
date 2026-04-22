@@ -36,7 +36,7 @@ export default function ProjectsContent() {
   }, [queryTab]);
 
   return (
-    <main className="flex-1 px-4 pt-6 pb-24 md:pb-8 max-w-2xl w-full mx-auto">
+    <main className="flex-1 px-4 pt-6 pb-24 min-[1100px]:pb-8 max-w-2xl w-full mx-auto">
         <h1 className="text-xl font-bold text-text-1">프로젝트</h1>
         <p className="text-sm text-text-5 mt-1">찜한 제안과 진행 중인 협업을 한눈에</p>
 

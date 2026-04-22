@@ -125,7 +125,7 @@ export default function Home() {
         ))}
       </div>
 
-      <main className="px-4 pt-3 pb-24 md:pb-8">
+      <main className="px-4 pt-3 pb-24 min-[1100px]:pb-8">
         {tab === "메인" ? (
           <div className="space-y-3">
             <HeroSlider

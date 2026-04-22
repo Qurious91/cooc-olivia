@@ -19,7 +19,7 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 inset-x-0 h-16 bg-background border-t border-border flex items-center justify-around text-text-6 z-30">
+      <nav className="min-[1100px]:hidden fixed bottom-0 inset-x-0 h-16 bg-background border-t border-border flex items-center justify-around text-text-6 z-30">
         <Link href="/home" aria-label="Home" className="p-2"><HomeIcon size={24} /></Link>
         <Link href="/search" aria-label="Search" className="p-2"><Search size={24} /></Link>
         <button aria-label="Create" className="p-2" onClick={() => setCreateOpen(true)}>
