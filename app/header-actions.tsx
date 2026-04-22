@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, LogOut, MoreVertical, Moon, Sun, User, UserPlus } from "lucide-react";
+import { Bell, LogOut, MoreVertical, Moon, Palette, Sun, User, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -258,6 +258,14 @@ export default function HeaderActions() {
               {dark ? <Sun size={16} className="text-text-5" /> : <Moon size={16} className="text-text-5" />}
               {dark ? "라이트 모드" : "다크 모드"}
             </button>
+            <Link
+              href="/design"
+              onClick={() => setMenuOpen(false)}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-1 border-t border-black/5 hover:bg-black/[0.03]"
+            >
+              <Palette size={16} className="text-text-5" />
+              디자인
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}

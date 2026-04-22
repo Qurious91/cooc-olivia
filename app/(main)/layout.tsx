@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import BottomNav from "../bottom-nav";
@@ -47,7 +48,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const hideHeader = /^\/ongoing\/[^/]+$/.test(pathname ?? "");
   return (
-    <div className="min-h-screen flex flex-col bg-background text-text-4 min-[1100px]:pl-56">
+    <div className="min-h-screen flex flex-col bg-background text-text-4 min-[1100px]:pl-56 min-[1100px]:pt-14">
+      <header className="hidden min-[1100px]:flex fixed top-0 left-0 right-0 h-14 z-40 items-center px-5 bg-background border-b border-[#999f54]/30">
+        <Link
+          href="/home"
+          className="text-2xl font-bold tracking-tight text-text-1"
+        >
+          COOC
+        </Link>
+      </header>
       <SideNav />
       {!hideHeader && (
         <div

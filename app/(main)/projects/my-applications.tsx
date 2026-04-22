@@ -20,6 +20,12 @@ type AppItem = {
   location: string;
   status: ApplicationStatus;
   message: string | null;
+  sharedName: string | null;
+  sharedAvatarUrl: string | null;
+  sharedAffiliation: string | null;
+  sharedJobTitle: string | null;
+  sharedRegion: string | null;
+  sharedKeywords: string[] | null;
   createdAt: string;
 };
 
@@ -65,7 +71,7 @@ export default function MyApplications() {
       const { data, error } = await supabase
         .from("collab_applications")
         .select(
-          "id, collab_id, message, status, created_at, collabs(id, title, author, period_start, period_end, period_start_time, period_end_time, location, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation))",
+          "id, collab_id, message, status, created_at, applicant_name, applicant_avatar_url, applicant_affiliation, applicant_job_title, applicant_region, applicant_keywords, collabs(id, title, author, period_start, period_end, period_start_time, period_end_time, location, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation))",
         )
         .eq("applicant_id", user.id)
         .order("created_at", { ascending: false });
@@ -112,6 +118,12 @@ export default function MyApplications() {
             location: c.location?.trim() ?? "",
             status: r.status as ApplicationStatus,
             message: r.message,
+            sharedName: r.applicant_name ?? null,
+            sharedAvatarUrl: r.applicant_avatar_url ?? null,
+            sharedAffiliation: r.applicant_affiliation ?? null,
+            sharedJobTitle: r.applicant_job_title ?? null,
+            sharedRegion: r.applicant_region ?? null,
+            sharedKeywords: r.applicant_keywords ?? null,
             createdAt: r.created_at,
           };
         })
@@ -237,6 +249,57 @@ export default function MyApplications() {
                 onClick={(e) => e.stopPropagation()}
                 className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3"
               >
+                {(it.sharedName ||
+                  it.sharedAffiliation ||
+                  it.sharedJobTitle ||
+                  it.sharedRegion ||
+                  (it.sharedKeywords && it.sharedKeywords.length > 0)) && (
+                  <div className="rounded-lg bg-[#999f54]/5 border border-[#999f54]/20 p-2.5">
+                    <div className="text-[10px] font-semibold text-text-5 tracking-wider mb-1.5">
+                      게시자에게 공개한 정보
+                    </div>
+                    <div className="flex items-start gap-2">
+                      {it.sharedAvatarUrl && (
+                        <span className="w-7 h-7 shrink-0 rounded-full overflow-hidden bg-[#999f54] inline-flex items-center justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={it.sharedAvatarUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        {it.sharedName && (
+                          <div className="text-xs font-semibold text-text-1 truncate">
+                            {it.sharedName}
+                          </div>
+                        )}
+                        {(it.sharedAffiliation ||
+                          it.sharedJobTitle ||
+                          it.sharedRegion) && (
+                          <div className="mt-0.5 text-[11px] text-text-5 truncate">
+                            {[it.sharedAffiliation, it.sharedJobTitle, it.sharedRegion]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                        )}
+                        {it.sharedKeywords && it.sharedKeywords.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {it.sharedKeywords.map((k) => (
+                              <span
+                                key={k}
+                                className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25"
+                              >
+                                #{k}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {it.message && (
                   <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
                     {it.message}

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import FabNewCollab from "../fab-new-collab";
 import Modal from "../../modal";
+import ApplyModal, { type ApplyPayload } from "./apply-modal";
 import { formatPeriod, periodFromColumns } from "../../period-picker";
 import { createCoocApplyChat } from "../../data/chats";
 import { HOME_CATEGORIES } from "../../data/categories";
@@ -53,6 +54,8 @@ export default function ExploreContent() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [pendingDelegate, setPendingDelegate] = useState<ViewItem | null>(null);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [applyTarget, setApplyTarget] = useState<ViewItem | null>(null);
+  const [withdrawTarget, setWithdrawTarget] = useState<ViewItem | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -229,6 +232,55 @@ export default function ExploreContent() {
     if (error) {
       console.error(
         willApply ? "[explore] apply failed" : "[explore] withdraw failed",
+        error.message,
+        error.details,
+        error.hint,
+        error.code,
+      );
+      rollback();
+    }
+  };
+
+  const submitApplication = async (collabId: string, payload: ApplyPayload) => {
+    setApplied((prev) => {
+      const next = new Set(prev);
+      next.add(collabId);
+      return next;
+    });
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const rollback = () =>
+      setApplied((prev) => {
+        const next = new Set(prev);
+        next.delete(collabId);
+        return next;
+      });
+    if (!user) {
+      rollback();
+      return;
+    }
+    const { error } = await supabase
+      .from("collab_applications")
+      .upsert(
+        {
+          collab_id: collabId,
+          applicant_id: user.id,
+          status: "pending",
+          message: payload.message,
+          applicant_name: payload.name,
+          applicant_avatar_url: payload.avatar_url,
+          applicant_affiliation: payload.affiliation,
+          applicant_job_title: payload.job_title,
+          applicant_region: payload.region,
+          applicant_keywords: payload.keywords,
+        },
+        { onConflict: "collab_id,applicant_id" },
+      );
+    if (error) {
+      console.error(
+        "[explore] submit application failed",
         error.message,
         error.details,
         error.hint,
@@ -421,7 +473,13 @@ export default function ExploreContent() {
                       )}
                       <div className="flex flex-wrap gap-2 pt-1">
                         <button
-                          onClick={() => toggleApply(it.id)}
+                          onClick={() => {
+                            if (applied.has(it.id)) {
+                              setWithdrawTarget(it);
+                            } else {
+                              setApplyTarget(it);
+                            }
+                          }}
                           aria-pressed={applied.has(it.id)}
                           className={`inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full font-semibold ${
                             applied.has(it.id)
@@ -458,6 +516,59 @@ export default function ExploreContent() {
         </ul>
       </main>
       <FabNewCollab />
+
+      <ApplyModal
+        open={applyTarget !== null}
+        onClose={() => setApplyTarget(null)}
+        collabTitle={applyTarget?.title ?? ""}
+        onSubmit={async (payload: ApplyPayload) => {
+          const target = applyTarget;
+          if (!target) return;
+          await submitApplication(target.id, payload);
+          setApplyTarget(null);
+        }}
+      />
+
+      <Modal
+        open={withdrawTarget !== null}
+        onClose={() => setWithdrawTarget(null)}
+        title="참여 요청 취소"
+        size="sm"
+      >
+        {withdrawTarget && (
+          <div className="flex flex-col gap-5">
+            <div className="text-sm text-text-3 leading-relaxed space-y-2">
+              <p>
+                <span className="font-semibold text-text-1">{withdrawTarget.title}</span>
+                {" "}참여 요청을 취소할까요?
+              </p>
+              <p className="text-xs text-text-5">
+                상대방에게 더 이상 표시되진 않지만, 이미 알림이 전달되었을 수 있어요.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setWithdrawTarget(null)}
+                className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
+              >
+                유지
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const t = withdrawTarget;
+                  setWithdrawTarget(null);
+                  if (t) toggleApply(t.id);
+                }}
+                className="flex-[2] py-2.5 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600"
+              >
+                취소하기
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={removeTarget !== null}

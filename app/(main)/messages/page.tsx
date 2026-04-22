@@ -2,8 +2,10 @@
 
 import { MessageCircle, Trash2, User } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type ChatRoom, deleteChat, loadChats } from "../../data/chats";
+
+const REVEAL = 80;
 
 function previewOf(room: ChatRoom) {
   const nonSystem = [...room.messages].reverse().find((m) => m.from !== "system");
@@ -21,16 +23,168 @@ function timeOf(room: ChatRoom) {
     : d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
+function ChatRow({
+  room,
+  isOpen,
+  onOpen,
+  onClose,
+  onDelete,
+}: {
+  room: ChatRoom;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  const [tx, setTx] = useState(isOpen ? -REVEAL : 0);
+  const [animating, setAnimating] = useState(true);
+  const drag = useRef<{
+    x: number;
+    y: number;
+    base: number;
+    axis: "x" | "y" | null;
+  } | null>(null);
+  const justDragged = useRef(false);
+
+  useEffect(() => {
+    if (drag.current) return;
+    setAnimating(true);
+    setTx(isOpen ? -REVEAL : 0);
+  }, [isOpen]);
+
+  const handleDown = (e: React.PointerEvent) => {
+    drag.current = {
+      x: e.clientX,
+      y: e.clientY,
+      base: isOpen ? -REVEAL : tx,
+      axis: null,
+    };
+    setAnimating(false);
+  };
+
+  const handleMove = (e: React.PointerEvent) => {
+    const s = drag.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (s.axis === null) {
+      if (Math.abs(dx) + Math.abs(dy) < 6) return;
+      s.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (s.axis !== "x") return;
+    justDragged.current = true;
+    setTx(Math.max(-REVEAL * 1.4, Math.min(0, s.base + dx)));
+  };
+
+  const handleUp = () => {
+    const s = drag.current;
+    drag.current = null;
+    setAnimating(true);
+    if (!s) return;
+    if (s.axis === "x") {
+      if (tx < -REVEAL / 2) {
+        setTx(-REVEAL);
+        onOpen();
+      } else {
+        setTx(0);
+        onClose();
+      }
+      setTimeout(() => {
+        justDragged.current = false;
+      }, 50);
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (justDragged.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (isOpen) {
+      e.preventDefault();
+      onClose();
+    }
+  };
+
+  return (
+    <li data-chat-row={room.id} className="relative overflow-hidden">
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label="대화 삭제"
+        className="absolute right-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-0.5 bg-red-500 text-white text-[11px] font-semibold"
+      >
+        <Trash2 size={16} />
+        삭제
+      </button>
+      <div
+        onPointerDown={handleDown}
+        onPointerMove={handleMove}
+        onPointerUp={handleUp}
+        onPointerCancel={handleUp}
+        style={{
+          transform: `translateX(${tx}px)`,
+          transition: animating ? "transform 200ms" : "none",
+          touchAction: "pan-y",
+        }}
+        className="relative bg-background"
+      >
+        <Link
+          href={`/chat?id=${encodeURIComponent(room.id)}`}
+          onClick={handleClick}
+          draggable={false}
+          className="flex items-center gap-3 px-4 py-3 active:bg-black/5 dark:active:bg-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
+        >
+          <span className="w-12 h-12 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
+            <User size={22} strokeWidth={1.75} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="text-[15px] font-semibold text-text-1 truncate">
+                {room.withName}
+                {room.withRole && (
+                  <span className="ml-1.5 text-[11px] font-normal text-text-6">
+                    {room.withRole}
+                  </span>
+                )}
+              </div>
+              <span className="shrink-0 text-[11px] text-text-6">{timeOf(room)}</span>
+            </div>
+            <div className="text-[13px] text-text-5 truncate mt-0.5">
+              {previewOf(room)}
+            </div>
+          </div>
+        </Link>
+      </div>
+    </li>
+  );
+}
+
 export default function MessagesPage() {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     setRooms(loadChats());
   }, []);
 
+  useEffect(() => {
+    if (!openId) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t?.closest(`[data-chat-row="${openId}"]`)) {
+        setOpenId(null);
+      }
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [openId]);
+
   const onDelete = (id: string) => {
     deleteChat(id);
     setRooms(loadChats());
+    setOpenId(null);
   };
 
   return (
@@ -55,46 +209,16 @@ export default function MessagesPage() {
             </Link>
           </div>
         ) : (
-          <ul className="mt-2 divide-y divide-black/5">
+          <ul className="mt-2 border-y divide-y border-black/5 divide-black/5 dark:border-white/5 dark:divide-white/5">
             {rooms.map((r) => (
-              <li key={r.id} className="group relative">
-                <Link
-                  href={`/chat?id=${encodeURIComponent(r.id)}`}
-                  className="flex items-center gap-3 px-4 py-3 active:bg-black/5 dark:bg-white/5 dark:active:bg-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
-                >
-                  <span className="w-12 h-12 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
-                    <User size={22} strokeWidth={1.75} />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <div className="text-[15px] font-semibold text-text-1 truncate">
-                        {r.withName}
-                        {r.withRole && (
-                          <span className="ml-1.5 text-[11px] font-normal text-text-6">
-                            {r.withRole}
-                          </span>
-                        )}
-                      </div>
-                      <span className="shrink-0 text-[11px] text-text-6">{timeOf(r)}</span>
-                    </div>
-                    <div className="text-[13px] text-text-5 truncate mt-0.5">
-                      {previewOf(r)}
-                    </div>
-                    {r.sourceTitle && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[#4a4d22] dark:text-[#d4d8a8] bg-[#999f54]/10 dark:bg-[#999f54]/20 px-1.5 py-0.5 rounded">
-                        {r.sourceTitle}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-                <button
-                  onClick={() => onDelete(r.id)}
-                  aria-label="대화 삭제"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-text-6 bg-white/80 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:text-red-600"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </li>
+              <ChatRow
+                key={r.id}
+                room={r}
+                isOpen={openId === r.id}
+                onOpen={() => setOpenId(r.id)}
+                onClose={() => setOpenId((cur) => (cur === r.id ? null : cur))}
+                onDelete={() => onDelete(r.id)}
+              />
             ))}
           </ul>
         )}

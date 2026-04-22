@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import Chip from "../../_components/chip";
 import {
   DndContext,
   PointerSensor,
@@ -204,35 +205,6 @@ function LabeledRow({
       </span>
       {children}
     </label>
-  );
-}
-
-// 키워드 칩. onRemove가 주어지면 ×버튼이 붙어 편집용 칩이 되고, 없으면 읽기 전용.
-function KeywordChip({
-  label,
-  onRemove,
-}: {
-  label: string;
-  onRemove?: () => void;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center text-[11px] ${
-        onRemove ? "gap-0.5 pl-2 pr-1" : "px-2"
-      } py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25`}
-    >
-      #{label}
-      {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`${label} 제거`}
-          className="p-0.5 rounded-full hover:text-red-500"
-        >
-          <X size={10} />
-        </button>
-      )}
-    </span>
   );
 }
 
@@ -2016,16 +1988,17 @@ export default function Profile() {
                     {editing ? (
                       <div className="flex flex-wrap items-center gap-1.5">
                         {data.keywords.map((k) => (
-                          <KeywordChip
+                          <Chip
                             key={k}
-                            label={k}
                             onRemove={() =>
                               setData((d) => ({
                                 ...d,
                                 keywords: d.keywords.filter((x) => x !== k),
                               }))
                             }
-                          />
+                          >
+                            #{k}
+                          </Chip>
                         ))}
                         {data.keywords.length < 7 && (
                           <input
@@ -2033,6 +2006,7 @@ export default function Profile() {
                             value={keywordDraft}
                             onChange={(e) => setKeywordDraft(e.target.value)}
                             onKeyDown={(e) => {
+                              if (e.nativeEvent.isComposing) return;
                               if (e.key === "Enter" || e.key === ",") {
                                 e.preventDefault();
                                 const v = keywordDraft.replace(/^#/, "").trim();
@@ -2072,7 +2046,7 @@ export default function Profile() {
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {data.keywords.map((k) => (
-                          <KeywordChip key={k} label={k} />
+                          <Chip key={k}>#{k}</Chip>
                         ))}
                       </div>
                     )}

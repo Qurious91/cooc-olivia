@@ -29,13 +29,19 @@ type Application = {
   applicant_id: string;
   status: AppStatus;
   message: string | null;
-  affiliation: string;
-  job_title: string;
-  region: string;
+  applicant_name: string | null;
+  applicant_avatar_url: string | null;
+  applicant_affiliation: string | null;
+  applicant_job_title: string | null;
+  applicant_region: string | null;
+  applicant_keywords: string[] | null;
   created_at: string;
 };
 
-const applicantLabel = (a: Application) => a.affiliation?.trim() || "익명 요청자";
+const applicantLabel = (a: Application) =>
+  a.applicant_name?.trim() ||
+  a.applicant_affiliation?.trim() ||
+  "익명 요청자";
 
 export default function MyCollabs({ initialOpenId }: { initialOpenId?: string }) {
   const router = useRouter();
@@ -51,6 +57,7 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [proceedTarget, setProceedTarget] = useState<CollabRow | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<Application | null>(null);
+  const [chatTarget, setChatTarget] = useState<{ app: Application; collab: CollabRow } | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +117,9 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
       if (myIds.length === 0) return;
       const { data: apps, error: appsErr } = await supabase
         .from("collab_applications")
-        .select("id, collab_id, applicant_id, status, message, created_at, profiles!collab_applications_applicant_id_fkey(affiliation, job_title, region)")
+        .select(
+          "id, collab_id, applicant_id, status, message, created_at, applicant_name, applicant_avatar_url, applicant_affiliation, applicant_job_title, applicant_region, applicant_keywords",
+        )
         .in("collab_id", myIds)
         .in("status", ["pending", "accepted"])
         .order("created_at", { ascending: false });
@@ -133,9 +142,12 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
           status: (r.status ?? "pending") as AppStatus,
           message: r.message,
           created_at: r.created_at,
-          affiliation: r.profiles?.affiliation ?? "",
-          job_title: r.profiles?.job_title ?? "",
-          region: r.profiles?.region ?? "",
+          applicant_name: r.applicant_name ?? null,
+          applicant_avatar_url: r.applicant_avatar_url ?? null,
+          applicant_affiliation: r.applicant_affiliation ?? null,
+          applicant_job_title: r.applicant_job_title ?? null,
+          applicant_region: r.applicant_region ?? null,
+          applicant_keywords: r.applicant_keywords ?? null,
         })),
       );
     })();
@@ -249,7 +261,7 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
   const openChat = (app: Application, collab: Collab) => {
     const room = createChat({
       withName: applicantLabel(app),
-      withRole: app.job_title ?? "",
+      withRole: app.applicant_job_title ?? "",
       sourceTitle: collab.title,
     });
     router.push(`/chat?id=${encodeURIComponent(room.id)}`);
@@ -487,11 +499,20 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                           >
                             <div className="flex items-start gap-2">
                               <span
-                                className={`w-8 h-8 shrink-0 rounded-full text-[#F2F0DC] inline-flex items-center justify-center ${
+                                className={`w-8 h-8 shrink-0 rounded-full text-[#F2F0DC] inline-flex items-center justify-center overflow-hidden ${
                                   a.status === "accepted" ? "bg-emerald-600" : "bg-[#999f54]"
                                 }`}
                               >
-                                <User size={16} strokeWidth={1.75} />
+                                {a.applicant_avatar_url ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img
+                                    src={a.applicant_avatar_url}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <User size={16} strokeWidth={1.75} />
+                                )}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5">
@@ -505,14 +526,32 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                                     </span>
                                   )}
                                 </div>
-                                <div className="mt-0.5 flex items-baseline gap-1 text-[11px] text-text-5">
-                                  <Briefcase size={11} className="text-[#999f54] shrink-0 self-center" />
-                                  <span className="truncate">
-                                    {[a.job_title, a.region].filter(Boolean).join(" · ") || "포지션 미기재"}
-                                  </span>
-                                </div>
+                                {(a.applicant_affiliation ||
+                                  a.applicant_job_title ||
+                                  a.applicant_region) && (
+                                  <div className="mt-0.5 flex items-baseline gap-1 text-[11px] text-text-5">
+                                    <Briefcase size={11} className="text-[#999f54] shrink-0 self-center" />
+                                    <span className="truncate">
+                                      {[a.applicant_affiliation, a.applicant_job_title, a.applicant_region]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    </span>
+                                  </div>
+                                )}
+                                {a.applicant_keywords && a.applicant_keywords.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {a.applicant_keywords.map((k) => (
+                                      <span
+                                        key={k}
+                                        className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25"
+                                      >
+                                        #{k}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                                 {a.message && (
-                                  <p className="mt-1.5 text-[11px] text-text-4">{a.message}</p>
+                                  <p className="mt-1.5 text-[11px] text-text-4 whitespace-pre-wrap">{a.message}</p>
                                 )}
                               </div>
                             </div>
@@ -534,7 +573,11 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                                 </button>
                               )}
                               <button
-                                onClick={() => openChat(a, c)}
+                                onClick={() =>
+                                  a.status === "accepted"
+                                    ? openChat(a, c)
+                                    : setChatTarget({ app: a, collab: c })
+                                }
                                 className="inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full border border-[#999f54]/40 text-[#4a4d22] dark:text-[#d4d8a8] hover:bg-[#999f54]/10 font-semibold"
                               >
                                 <MessageCircle size={12} />
@@ -681,6 +724,97 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                   className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
                 >
                   진행 시작
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      <Modal
+        open={!!chatTarget}
+        onClose={() => setChatTarget(null)}
+        title="대화 시작하기"
+        size="sm"
+      >
+        {chatTarget && (() => {
+          const a = chatTarget.app;
+          const metaParts = [a.applicant_affiliation, a.applicant_job_title, a.applicant_region].filter(
+            (v): v is string => !!v,
+          );
+          return (
+            <div className="flex flex-col gap-5">
+              <div className="text-sm text-text-3 leading-relaxed space-y-2">
+                <p>
+                  <span className="font-semibold text-text-1">{applicantLabel(a)}</span>
+                  님과 대화를 시작할까요?
+                </p>
+                <p className="text-xs text-text-5">
+                  아래는 참여자가 공개한 정보예요. 이 내용을 확인하고 대화를 이어가세요.
+                </p>
+              </div>
+              <div className="rounded-lg p-2.5 border bg-[#999f54]/8 border-[#999f54]/20">
+                <div className="flex items-start gap-2">
+                  <span className="w-8 h-8 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center overflow-hidden">
+                    {a.applicant_avatar_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={a.applicant_avatar_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User size={16} strokeWidth={1.75} />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-text-1 truncate">
+                      {applicantLabel(a)}
+                    </div>
+                    {metaParts.length > 0 && (
+                      <div className="mt-0.5 flex items-baseline gap-1 text-[11px] text-text-5">
+                        <Briefcase size={11} className="text-[#999f54] shrink-0 self-center" />
+                        <span className="truncate">{metaParts.join(" · ")}</span>
+                      </div>
+                    )}
+                    {a.applicant_keywords && a.applicant_keywords.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {a.applicant_keywords.map((k) => (
+                          <span
+                            key={k}
+                            className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25"
+                          >
+                            #{k}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {a.message && (
+                      <p className="mt-1.5 text-[11px] text-text-4 whitespace-pre-wrap">
+                        {a.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChatTarget(null)}
+                  className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = chatTarget;
+                    setChatTarget(null);
+                    if (t) openChat(t.app, t.collab);
+                  }}
+                  className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
+                >
+                  대화 시작
                 </button>
               </div>
             </div>

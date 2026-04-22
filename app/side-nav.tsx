@@ -161,13 +161,7 @@ export default function SideNav() {
 
   return (
     <>
-      <aside className="hidden min-[1100px]:flex fixed left-0 top-0 bottom-0 w-56 border-r border-[#999f54]/30 bg-background flex-col z-30">
-        <Link
-          href="/home"
-          className="px-5 py-4 text-2xl font-bold tracking-tight text-text-1 border-b border-[#999f54]/30"
-        >
-          COOC
-        </Link>
+      <aside className="hidden min-[1100px]:flex fixed left-0 top-14 bottom-0 w-56 border-r border-[#999f54]/30 bg-background flex-col z-30">
         <nav className="flex-1 p-3 flex flex-col gap-1">
           {NAV_ITEMS.map(({ href, label, Icon }) => {
             const active = pathname?.startsWith(href);

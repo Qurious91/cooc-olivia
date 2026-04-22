@@ -1,16 +1,19 @@
 "use client";
 
-import { CheckCircle2, ChevronDown } from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatPeriod, periodFromColumns } from "../../period-picker";
+import { type CollabKind } from "../../data/collabs";
 import { createClient } from "@/lib/supabase/client";
 
 type CompletedItem = {
   id: string;
+  kind: CollabKind;
   title: string;
   partner: string;
   completedAt: string;
   period: string | null;
+  location: string;
   desc: string;
 };
 
@@ -31,7 +34,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
         supabase
           .from("collabs")
           .select(
-            "id, author, title, description, period_start, period_end, period_start_time, period_end_time, updated_at, profiles!collabs_author_id_fkey(name, affiliation)",
+            "id, author, title, description, period_start, period_end, period_start_time, period_end_time, location, updated_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation)",
           )
           .eq("author_id", user.id)
           .eq("status", "done")
@@ -39,7 +42,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
         supabase
           .from("collab_applications")
           .select(
-            "id, collabs!inner(id, author, title, description, period_start, period_end, period_start_time, period_end_time, status, updated_at, profiles!collabs_author_id_fkey(name, affiliation))",
+            "id, collabs!inner(id, author, title, description, period_start, period_end, period_start_time, period_end_time, location, status, updated_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation))",
           )
           .eq("applicant_id", user.id)
           .eq("status", "accepted")
@@ -74,6 +77,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
 
       const mapHost = (r: any): CompletedItem => ({
         id: r.id,
+        kind: (r.collab_kinds?.label ?? "") as CollabKind,
         title: r.title,
         partner: partnerLabel(r.author, r.profiles?.name ?? "", r.profiles?.affiliation ?? ""),
         completedAt: r.updated_at,
@@ -83,6 +87,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
           period_start_time: r.period_start_time,
           period_end_time: r.period_end_time,
         }),
+        location: r.location ?? "",
         desc: r.description ?? "",
       });
 
@@ -91,6 +96,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
         if (!c) return null;
         return {
           id: c.id,
+          kind: (c.collab_kinds?.label ?? "") as CollabKind,
           title: c.title,
           partner: partnerLabel(c.author, c.profiles?.name ?? "", c.profiles?.affiliation ?? ""),
           completedAt: c.updated_at,
@@ -100,6 +106,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
             period_start_time: c.period_start_time,
             period_end_time: c.period_end_time,
           }),
+          location: c.location ?? "",
           desc: c.description ?? "",
         };
       };
@@ -148,7 +155,7 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
         />
       </button>
       {open && (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 space-y-3">
           {items.map((it) => {
             const exp = expanded.has(it.id);
             const periodLabel = formatPeriod(it.period);
@@ -163,18 +170,46 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
                       }
                     : undefined
                 }
-                className={`rounded-xl border border-black/5 dark:border-white/5 bg-surface p-3 ${
+                className={`rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-4 ${
                   it.desc ? "cursor-pointer" : ""
                 }`}
               >
-                <div className="text-[11px] text-text-6">with {it.partner}</div>
-                <div className="mt-0.5 text-sm font-semibold text-text-2 truncate">
-                  {it.title}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-text-5 flex items-center gap-1.5">
+                      <span className="truncate">with {it.partner}</span>
+                      {it.kind && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]">
+                          {it.kind}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 text-lg font-semibold text-text-1 truncate">
+                      {it.title}
+                    </div>
+                    {(periodLabel || it.location) && (
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-6">
+                        {periodLabel && (
+                          <span className="inline-flex items-center gap-1 min-w-0">
+                            <CalendarClock size={11} className="shrink-0" />
+                            <span className="truncate">{periodLabel}</span>
+                          </span>
+                        )}
+                        {it.location && (
+                          <span className="inline-flex items-center gap-1 min-w-0">
+                            <MapPin size={11} className="shrink-0" />
+                            <span className="truncate">{it.location}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-black/5 dark:bg-white/10 text-text-4 border-black/10 dark:border-white/15">
+                    <CheckCircle2 size={11} />
+                    완료 {new Date(it.completedAt).toLocaleDateString("ko-KR")}
+                  </span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-text-6">
-                  <span>완료 {new Date(it.completedAt).toLocaleDateString("ko-KR")}</span>
-                  {periodLabel && <span>· {periodLabel}</span>}
-                </div>
+
                 {it.desc && (
                   <div className="mt-2 flex justify-end">
                     <button
@@ -194,9 +229,9 @@ export default function CompletedWorks({ refreshKey = 0 }: { refreshKey?: number
                 {exp && it.desc && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-2 pt-2 border-t border-black/5 dark:border-white/5"
+                    className="mt-3 pt-3 border-t border-black/5 dark:border-white/5"
                   >
-                    <p className="text-[11px] text-text-4 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
                       {it.desc}
                     </p>
                   </div>
