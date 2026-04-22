@@ -1,34 +1,35 @@
 "use client";
 
-import { Handshake, LayoutDashboard, User, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { NAV_ITEMS } from "./nav-items";
 
-const ITEMS: { href: string; label: string; Icon: LucideIcon }[] = [
-  { href: "/admin", label: "대시보드", Icon: LayoutDashboard },
-  { href: "/admin/profiles", label: "프로필", Icon: User },
-  { href: "/admin/collabs", label: "협업", Icon: Handshake },
-];
-
-export default function AdminNav() {
+export default function AdminNav({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="flex-1 p-3 flex flex-col gap-1">
-      {ITEMS.map(({ href, label, Icon }) => {
+      {NAV_ITEMS.map(({ href, label, Icon }) => {
         const active =
           href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href);
         return (
           <Link
             key={href}
             href={href}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+            title={collapsed ? label : undefined}
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
               active
                 ? "bg-[#999f54]/15 text-[#4a4d22] dark:text-[#d4d8a8] font-semibold"
                 : "text-text-4 hover:bg-black/5 dark:hover:bg-white/5"
             }`}
           >
-            <Icon size={18} />
-            {label}
+            <Icon size={18} className="shrink-0" />
+            <span
+              className={`overflow-hidden transition-all duration-200 ${
+                collapsed ? "max-w-0 opacity-0" : "max-w-[160px] opacity-100"
+              }`}
+            >
+              {label}
+            </span>
           </Link>
         );
       })}

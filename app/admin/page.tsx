@@ -11,7 +11,7 @@ export default async function AdminDashboardPage() {
   ]);
 
   return (
-    <main className="px-8 py-8">
+    <main className="px-4 py-6 min-[1100px]:px-8 min-[1100px]:py-8">
       <div className="mb-8">
         <h1 className="text-xl font-bold text-text-1">대시보드</h1>
         <p className="mt-0.5 text-xs text-text-5">현재 데이터 요약</p>

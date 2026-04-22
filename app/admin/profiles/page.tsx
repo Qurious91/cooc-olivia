@@ -1,8 +1,6 @@
 import { User } from "lucide-react";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import ProfileRow from "./row";
-import SearchForm from "./search-form";
 
 type ProfileRow = {
   id: string;
@@ -28,43 +26,22 @@ function formatDate(iso: string) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default async function AdminProfilesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const { q } = await searchParams;
-  const query = q?.trim();
+export default async function AdminProfilesPage() {
   const supabase = await createClient();
-
-  let builder = supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select(
       "id, name, role, avatar_url, status, affiliation, job_title, region, is_admin, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(100);
-
-  if (query) {
-    const like = `%${query}%`;
-    builder = builder.or(`name.ilike.${like},affiliation.ilike.${like}`);
-  }
-
-  const { data, error } = await builder;
   const rows = (data ?? []) as ProfileRow[];
 
   return (
-    <main className="px-8 py-8">
-      <div className="mb-8 flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text-1">프로필</h1>
-          <p className="mt-0.5 text-xs text-text-5">
-            {query ? `"${query}" 검색 결과 ${rows.length}건` : `총 ${rows.length}명 (최근 100명)`}
-          </p>
-        </div>
-        <Suspense fallback={<div className="h-10 w-full max-w-md rounded-full bg-black/5 dark:bg-white/5" />}>
-          <SearchForm />
-        </Suspense>
+    <main className="px-4 py-6 min-[1100px]:px-8 min-[1100px]:py-8">
+      <div className="mb-8">
+        <h1 className="text-xl font-bold text-text-1">프로필</h1>
+        <p className="mt-0.5 text-xs text-text-5">총 {rows.length}명 (최근 100명)</p>
       </div>
 
       {error && (
@@ -79,19 +56,19 @@ export default async function AdminProfilesPage({
             <thead className="bg-black/[0.02] dark:bg-white/[0.02] text-text-5 text-xs">
               <tr>
                 <th className="text-left font-medium px-4 py-2.5">사용자</th>
-                <th className="text-left font-medium px-4 py-2.5">역할</th>
+                <th className="text-left font-medium px-4 py-2.5 max-[1099px]:hidden">역할</th>
                 <th className="text-left font-medium px-4 py-2.5">소속</th>
-                <th className="text-left font-medium px-4 py-2.5">지역</th>
+                <th className="text-left font-medium px-4 py-2.5 max-[1099px]:hidden">지역</th>
                 <th className="text-left font-medium px-4 py-2.5">상태</th>
-                <th className="text-left font-medium px-4 py-2.5">권한</th>
-                <th className="text-left font-medium px-4 py-2.5">가입일</th>
+                <th className="text-left font-medium px-4 py-2.5 max-[1099px]:hidden">권한</th>
+                <th className="text-left font-medium px-4 py-2.5 max-[1099px]:hidden">가입일</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5 dark:divide-white/5">
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-sm text-text-6">
-                    {query ? "검색 결과가 없어요" : "프로필이 없어요"}
+                    프로필이 없어요
                   </td>
                 </tr>
               ) : (
@@ -117,7 +94,7 @@ export default async function AdminProfilesPage({
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-text-3">
+                    <td className="px-4 py-3 text-text-3 max-[1099px]:hidden">
                       {[p.role, p.job_title].filter(Boolean).join(" · ") || (
                         <span className="text-text-6">—</span>
                       )}
@@ -125,7 +102,7 @@ export default async function AdminProfilesPage({
                     <td className="px-4 py-3 text-text-3">
                       {p.affiliation || <span className="text-text-6">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-text-3">
+                    <td className="px-4 py-3 text-text-3 max-[1099px]:hidden">
                       {p.region || <span className="text-text-6">—</span>}
                     </td>
                     <td className="px-4 py-3">
@@ -141,7 +118,7 @@ export default async function AdminProfilesPage({
                         <span className="text-text-6">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 max-[1099px]:hidden">
                       {p.is_admin ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
                           admin
@@ -150,7 +127,7 @@ export default async function AdminProfilesPage({
                         <span className="text-text-6">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-text-5 text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 text-text-5 text-xs whitespace-nowrap max-[1099px]:hidden">
                       {formatDate(p.created_at)}
                     </td>
                   </ProfileRow>

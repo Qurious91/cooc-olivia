@@ -39,7 +39,7 @@ export default async function AdminCollabsPage() {
   const rows = (data ?? []) as unknown as CollabListRow[];
 
   return (
-    <main className="px-8 py-8">
+    <main className="px-4 py-6 min-[1100px]:px-8 min-[1100px]:py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-text-1">협업</h1>
@@ -67,9 +67,9 @@ export default async function AdminCollabsPage() {
               <tr>
                 <th className="text-left font-medium px-4 py-2.5">제목</th>
                 <th className="text-left font-medium px-4 py-2.5">작성자</th>
-                <th className="text-left font-medium px-4 py-2.5">종류</th>
+                <th className="text-left font-medium px-4 py-2.5 max-[1099px]:hidden">종류</th>
                 <th className="text-left font-medium px-4 py-2.5">상태</th>
-                <th className="text-left font-medium px-4 py-2.5">등록일</th>
+                <th className="text-left font-medium px-4 py-2.5 max-[1099px]:hidden">등록일</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5 dark:divide-white/5">
@@ -86,7 +86,7 @@ export default async function AdminCollabsPage() {
                     <td className="px-4 py-3 text-text-3">
                       {c.profiles?.name || <span className="text-text-6">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-text-3">
+                    <td className="px-4 py-3 text-text-3 max-[1099px]:hidden">
                       {c.collab_kinds?.label || c.kind}
                     </td>
                     <td className="px-4 py-3">
@@ -98,7 +98,7 @@ export default async function AdminCollabsPage() {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-text-5 text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 text-text-5 text-xs whitespace-nowrap max-[1099px]:hidden">
                       {formatDate(c.created_at)}
                     </td>
                   </CollabRow>

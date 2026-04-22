@@ -21,7 +21,7 @@ export default async function NewCollabPage() {
   const kinds = (kindsRes.data ?? []) as KindOption[];
 
   return (
-    <main className="px-8 py-8">
+    <main className="px-4 py-6 min-[1100px]:px-8 min-[1100px]:py-8">
       <Link
         href="/admin/collabs"
         className="inline-flex items-center gap-1 text-xs text-text-5 hover:text-text-3 mb-5"
