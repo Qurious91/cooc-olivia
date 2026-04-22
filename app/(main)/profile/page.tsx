@@ -1834,7 +1834,7 @@ export default function Profile() {
               </div>
             ) : (
               <>
-                <div className="flex items-start gap-5">
+                <div className="flex items-center gap-5">
                   <div className="shrink-0 relative" ref={avatarMenuRef}>
                     <button
                       type="button"
