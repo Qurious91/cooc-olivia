@@ -190,7 +190,12 @@ export default function MessagesPage() {
   return (
     <main className="flex-1 px-0 pt-6 pb-24 min-[1100px]:pb-8 max-w-2xl w-full mx-auto">
         <div className="px-4">
-          <h1 className="text-xl font-bold text-text-1">메시지</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-text-1">메시지</h1>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+              DB설계중
+            </span>
+          </div>
           <p className="text-sm text-text-5 mt-1">수락한 참여자와 나눈 대화</p>
         </div>
 
