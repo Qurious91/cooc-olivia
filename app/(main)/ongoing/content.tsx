@@ -44,7 +44,7 @@ export default function OngoingContent() {
   const ActiveIcon = activeMeta?.Icon;
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface">
+    <div className="min-h-[100dvh] flex flex-col bg-surface">
       <header className="sticky top-0 z-20 bg-surface border-b border-black/10 dark:border-white/10 flex items-center gap-1.5 px-3 py-1.5">
         <Link
           href="/home"

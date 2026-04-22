@@ -6,7 +6,7 @@ import { type OngoingItem } from "../data";
 
 export default function OngoingDetailContent({ item }: { item: OngoingItem }) {
   return (
-    <div className="min-h-screen flex flex-col bg-surface">
+    <div className="min-h-[100dvh] flex flex-col bg-surface">
       <div className="relative h-[40vh] w-full bg-black/5 dark:bg-white/5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

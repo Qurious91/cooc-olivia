@@ -59,7 +59,7 @@ export default function Signup() {
 
   return (
     <>
-      <div className="min-h-screen bg-background text-text-4 flex flex-col">
+      <div className="min-h-[100dvh] bg-background text-text-4 flex flex-col">
         <main className="flex-1 flex items-center justify-center px-6 py-12">
           <ViewTransition name="auth-card">
           <div className="w-full max-w-sm">

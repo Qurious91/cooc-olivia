@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!profile?.is_admin) redirect("/home");
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-text-4">
+    <div className="min-h-[100dvh] flex flex-col bg-background text-text-4">
       <header className="sticky top-0 z-40 flex items-center gap-3 px-4 py-3 min-[1100px]:px-5 min-[1100px]:py-0 min-[1100px]:h-14 bg-background border-b border-[#999f54]/30">
         <Link href="/admin" className="shrink-0 flex items-center gap-1.5">
           <span className="text-2xl font-bold tracking-tight text-text-1">COOC</span>

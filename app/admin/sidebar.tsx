@@ -35,7 +35,7 @@ export default function AdminSidebar() {
   return (
     <aside
       onClick={handleClick}
-      className={`shrink-0 border-r border-[#999f54]/30 max-[1099px]:hidden flex flex-col sticky top-14 self-start h-[calc(100vh-3.5rem)] cursor-pointer overflow-hidden transition-[width] duration-200 ${
+      className={`shrink-0 border-r border-[#999f54]/30 max-[1099px]:hidden flex flex-col sticky top-14 self-start h-[calc(100dvh-3.5rem)] cursor-pointer overflow-hidden transition-[width] duration-200 ${
         collapsed ? "w-16" : "w-56"
       }`}
     >

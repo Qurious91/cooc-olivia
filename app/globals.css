@@ -42,6 +42,11 @@
   --color-text-6: var(--text-6);
 }
 
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
