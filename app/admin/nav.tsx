@@ -1,11 +1,12 @@
 "use client";
 
-import { Handshake, User, type LucideIcon } from "lucide-react";
+import { Handshake, LayoutDashboard, User, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS: { href: string; label: string; Icon: LucideIcon }[] = [
-  { href: "/admin", label: "프로필", Icon: User },
+  { href: "/admin", label: "대시보드", Icon: LayoutDashboard },
+  { href: "/admin/profiles", label: "프로필", Icon: User },
   { href: "/admin/collabs", label: "협업", Icon: Handshake },
 ];
 

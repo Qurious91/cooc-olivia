@@ -23,7 +23,7 @@ export default async function ProfileDetailPage({
   return (
     <main className="px-8 py-8">
       <Link
-        href="/admin"
+        href="/admin/profiles"
         className="inline-flex items-center gap-1 text-xs text-text-5 hover:text-text-3 mb-5"
       >
         <ChevronLeft size={14} />

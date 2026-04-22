@@ -45,7 +45,7 @@ export async function updateProfile(input: UpdateProfileInput) {
     })
     .eq("id", input.id);
   if (error) return { error: error.message };
-  revalidatePath("/admin");
+  revalidatePath("/admin/profiles");
   revalidatePath(`/admin/profiles/${input.id}`);
   return { error: null };
 }
@@ -54,6 +54,6 @@ export async function deleteProfile(id: string) {
   const supabase = await requireAdmin();
   const { error } = await supabase.from("profiles").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/admin");
-  redirect("/admin");
+  revalidatePath("/admin/profiles");
+  redirect("/admin/profiles");
 }

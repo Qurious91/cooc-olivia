@@ -255,7 +255,7 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => router.push("/admin")}
+            onClick={() => router.push("/admin/profiles")}
             className="px-4 py-2 rounded-lg text-sm text-text-3 hover:bg-black/5 dark:hover:bg-white/5"
           >
             취소

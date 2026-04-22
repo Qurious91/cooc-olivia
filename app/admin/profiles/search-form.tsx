@@ -12,7 +12,9 @@ export default function SearchForm() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = q.trim();
-    router.push(trimmed ? `/admin?q=${encodeURIComponent(trimmed)}` : "/admin");
+    router.push(
+      trimmed ? `/admin/profiles?q=${encodeURIComponent(trimmed)}` : "/admin/profiles",
+    );
   };
 
   return (
@@ -33,7 +35,7 @@ export default function SearchForm() {
           type="button"
           onClick={() => {
             setQ("");
-            router.push("/admin");
+            router.push("/admin/profiles");
           }}
           aria-label="지우기"
           className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-6 hover:bg-black/5 dark:hover:bg-white/5"
