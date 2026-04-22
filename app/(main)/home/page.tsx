@@ -12,7 +12,6 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import Splash from "../../splash";
 import { CREATOR_CATEGORIES, BRAND_CATEGORIES } from "../../data/categories";
 import { createClient } from "@/lib/supabase/client";
 import HeroSlider, { type HeroSlide } from "./hero-slider";
@@ -108,7 +107,6 @@ export default function Home() {
 
   return (
     <>
-      <Splash />
       <div className="flex gap-2 px-4 py-2 border-b border-black/5 dark:border-white/5 overflow-x-auto">
         {TABS.map((k) => (
           <button
