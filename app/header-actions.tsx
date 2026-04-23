@@ -114,10 +114,7 @@ export default function HeaderActions() {
   const toggleNotif = () => {
     if (!notifOpen && notifBtnRef.current) {
       const rect = notifBtnRef.current.getBoundingClientRect();
-      setNotifPos({
-        top: rect.bottom + 8,
-        right: Math.max(8, window.innerWidth - rect.right),
-      });
+      setNotifPos({ top: rect.bottom + 8, right: 16 });
     }
     setMenuOpen(false);
     setNotifOpen((v) => !v);
@@ -126,10 +123,7 @@ export default function HeaderActions() {
   const toggleMenu = () => {
     if (!menuOpen && menuBtnRef.current) {
       const rect = menuBtnRef.current.getBoundingClientRect();
-      setMenuPos({
-        top: rect.bottom + 8,
-        right: Math.max(8, window.innerWidth - rect.right),
-      });
+      setMenuPos({ top: rect.bottom + 8, right: 16 });
     }
     setNotifOpen(false);
     setMenuOpen((v) => !v);

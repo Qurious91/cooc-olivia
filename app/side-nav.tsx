@@ -6,6 +6,7 @@ import {
   LogOut,
   MessageCircle,
   Moon,
+  Palette,
   Sun,
   User,
   UserPlus,
@@ -205,6 +206,10 @@ export default function SideNav() {
             {dark ? <Sun size={18} /> : <Moon size={18} />}
             {dark ? "라이트 모드" : "다크 모드"}
           </button>
+          <Link href="/design" className={ROW}>
+            <Palette size={18} />
+            디자인
+          </Link>
           <button type="button" onClick={handleSignOut} className={ROW}>
             <LogOut size={18} />
             로그아웃

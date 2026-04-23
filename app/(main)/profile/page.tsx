@@ -1986,20 +1986,7 @@ export default function Profile() {
                 {(editing || data.keywords.length > 0) && (
                   <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5">
                     {editing ? (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {data.keywords.map((k) => (
-                          <Chip
-                            key={k}
-                            onRemove={() =>
-                              setData((d) => ({
-                                ...d,
-                                keywords: d.keywords.filter((x) => x !== k),
-                              }))
-                            }
-                          >
-                            #{k}
-                          </Chip>
-                        ))}
+                      <div className="space-y-2">
                         {data.keywords.length < 7 && (
                           <input
                             type="text"
@@ -2039,14 +2026,32 @@ export default function Profile() {
                                 ? "키워드 입력 후 Enter"
                                 : "+ 추가"
                             }
-                            className="bg-[#999f54]/5 border border-dashed border-[#999f54]/25 rounded-full outline-none text-sm text-text-1 placeholder:text-[#999f54]/50 px-2.5 py-0.5 flex-1 min-w-[140px] focus:border-solid focus:border-[#999f54]/50 focus:bg-[#999f54]/10 transition-colors"
+                            className="w-full bg-[#999f54]/5 border border-dashed border-[#999f54]/25 rounded-full outline-none text-sm text-text-1 placeholder:text-[#999f54]/50 px-2.5 py-0.5 focus:border-solid focus:border-[#999f54]/50 focus:bg-[#999f54]/10 transition-colors"
                           />
+                        )}
+                        {data.keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {data.keywords.map((k) => (
+                              <Chip
+                                key={k}
+                                className="text-[0.8rem]"
+                                onRemove={() =>
+                                  setData((d) => ({
+                                    ...d,
+                                    keywords: d.keywords.filter((x) => x !== k),
+                                  }))
+                                }
+                              >
+                                #{k}
+                              </Chip>
+                            ))}
+                          </div>
                         )}
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {data.keywords.map((k) => (
-                          <Chip key={k}>#{k}</Chip>
+                          <Chip key={k} className="text-[0.8rem]">#{k}</Chip>
                         ))}
                       </div>
                     )}
