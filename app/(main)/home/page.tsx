@@ -5,15 +5,16 @@ import {
   FlaskConical,
   Handshake,
   Store,
-  User,
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { CREATOR_CATEGORIES, BRAND_CATEGORIES } from "../../data/categories";
 import { createClient } from "@/lib/supabase/client";
+import { OngoingCard } from "../ongoing/card";
+import { ONGOING_DUMMY } from "../ongoing/data";
 import HeroSlider, { type HeroSlide } from "./hero-slider";
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -93,6 +94,13 @@ const BRAND_SLIDES: HeroSlide[] = [
 export default function Home() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("메인");
   const [collabKinds, setCollabKinds] = useState<CollabKindRow[]>([]);
+  const ongoingRef = useRef<HTMLUListElement>(null);
+  const ongoingDrag = useRef<{
+    startX: number;
+    startScrollLeft: number;
+    moved: boolean;
+  } | null>(null);
+  const ongoingJustDragged = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -104,6 +112,45 @@ export default function Home() {
       if (data) setCollabKinds(data as CollabKindRow[]);
     })();
   }, []);
+
+  const onOngoingPointerDown = (e: React.PointerEvent<HTMLUListElement>) => {
+    if (e.pointerType !== "mouse") return;
+    if (!ongoingRef.current) return;
+    ongoingDrag.current = {
+      startX: e.clientX,
+      startScrollLeft: ongoingRef.current.scrollLeft,
+      moved: false,
+    };
+    ongoingRef.current.setPointerCapture(e.pointerId);
+  };
+
+  const onOngoingPointerMove = (e: React.PointerEvent<HTMLUListElement>) => {
+    if (!ongoingDrag.current || !ongoingRef.current) return;
+    const dx = e.clientX - ongoingDrag.current.startX;
+    if (Math.abs(dx) > 4) ongoingDrag.current.moved = true;
+    ongoingRef.current.scrollLeft = ongoingDrag.current.startScrollLeft - dx;
+  };
+
+  const onOngoingPointerUp = (e: React.PointerEvent<HTMLUListElement>) => {
+    if (!ongoingDrag.current) return;
+    if (ongoingDrag.current.moved) {
+      ongoingJustDragged.current = true;
+      setTimeout(() => {
+        ongoingJustDragged.current = false;
+      }, 50);
+    }
+    ongoingDrag.current = null;
+    if (ongoingRef.current?.hasPointerCapture(e.pointerId)) {
+      ongoingRef.current.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const onOngoingClickCapture = (e: React.MouseEvent<HTMLUListElement>) => {
+    if (ongoingJustDragged.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
 
   return (
     <>
@@ -176,32 +223,21 @@ export default function Home() {
                 </div>
                 <Link href="/ongoing" className="text-xs text-[#999f54] hover:text-[#7a7f43]">전체보기</Link>
               </div>
-              <ul className="divide-y divide-black/5">
-                {[
-                  { a: "박셰프", b: "이파티시에", title: "시즈널 디저트 코스 공동개발", tag: "진행중" },
-                  { a: "김바리스타", b: "최소믈리에", title: "와인 페어링 시그니처 음료", tag: "모집중" },
-                  { a: "정셰프", b: "한브랜드", title: "팝업 다이닝 3일간 콜라보", tag: "예정" },
-                  { a: "오베이커", b: "유셰프", title: "브런치 메뉴 신규 라인업", tag: "마감임박" },
-                ].map((c) => (
-                  <li key={c.title} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex -space-x-2 shrink-0">
-                        <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center border-2 border-surface">
-                          <User size={14} strokeWidth={1.75} />
-                        </span>
-                        <span className="w-8 h-8 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center border-2 border-surface">
-                          <User size={14} strokeWidth={1.75} />
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-text-1 truncate">{c.title}</div>
-                        <div className="text-xs text-text-5 truncate">{c.a} × {c.b}</div>
-                      </div>
-                    </div>
-                    <span className="ml-3 shrink-0 text-xs px-2.5 py-1 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8]">
-                      {c.tag}
-                    </span>
-                  </li>
+              <ul
+                ref={ongoingRef}
+                onPointerDown={onOngoingPointerDown}
+                onPointerMove={onOngoingPointerMove}
+                onPointerUp={onOngoingPointerUp}
+                onPointerCancel={onOngoingPointerUp}
+                onClickCapture={onOngoingClickCapture}
+                className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 cursor-grab active:cursor-grabbing select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {ONGOING_DUMMY.map((it) => (
+                  <OngoingCard
+                    key={it.id}
+                    item={it}
+                    className="snap-start shrink-0 w-48"
+                  />
                 ))}
               </ul>
             </section>
