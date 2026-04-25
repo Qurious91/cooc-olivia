@@ -10,6 +10,7 @@ export default async function NewCollabPage() {
     supabase
       .from("profiles")
       .select("id, name, affiliation")
+      .eq("is_admin", false)
       .order("name", { ascending: true }),
     supabase
       .from("collab_kinds")

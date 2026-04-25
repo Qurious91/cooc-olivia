@@ -33,6 +33,7 @@ export default async function AdminProfilesPage() {
     .select(
       "id, name, role, avatar_url, status, affiliation, job_title, region, is_admin, created_at",
     )
+    .eq("is_admin", false)
     .order("created_at", { ascending: false })
     .limit(100);
   const rows = (data ?? []) as ProfileRow[];

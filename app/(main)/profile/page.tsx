@@ -902,7 +902,7 @@ export default function Profile() {
     const supabase = createClient();
     (async () => {
       const { data: rows } = await supabase
-        .from("profile_section_types")
+        .from("profile_section_kinds")
         .select("key, label, position, icon")
         .order("position");
       if (rows) setSectionTypes(rows as SectionType[]);
@@ -1754,7 +1754,7 @@ export default function Profile() {
                     type="text"
                     value={roleInput}
                     onChange={(e) => setRoleInput(e.target.value)}
-                    placeholder="예) 크리에이터 / 브랜드"
+                    placeholder="COOC에서 맡고 싶은 역할을 입력해주세요"
                     className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
                   />
                 </div>
@@ -1766,7 +1766,7 @@ export default function Profile() {
                     type="text"
                     value={affiliationInput}
                     onChange={(e) => setAffiliationInput(e.target.value)}
-                    placeholder="예) 더 키친 / 오리진 푸드컴퍼니"
+                    placeholder="현재 소속을 입력해주세요"
                     className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
                   />
                 </div>
@@ -2076,6 +2076,14 @@ export default function Profile() {
             </button>
             <button
               type="button"
+              onClick={() => setReorderOpen(true)}
+              disabled={orderedSectionTypes.length < 2}
+              className="inline-flex items-center gap-1 text-xs text-text-5 px-3 py-1.5 rounded-full border border-dashed border-black/20 dark:border-white/20 hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ArrowUpDown size={12} /> 순서 바꾸기
+            </button>
+            <button
+              type="button"
               onClick={() => setShowPreview((v) => !v)}
               className="inline-flex items-center gap-1 text-xs text-text-5 px-3 py-1.5 rounded-full border border-dashed border-black/20 dark:border-white/20 hover:border-[#999f54] hover:text-[#999f54]"
             >
@@ -2088,14 +2096,6 @@ export default function Profile() {
                   <Eye size={12} /> 미리보기 켜기
                 </>
               )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setReorderOpen(true)}
-              disabled={orderedSectionTypes.length < 2}
-              className="inline-flex items-center gap-1 text-xs text-text-5 px-3 py-1.5 rounded-full border border-dashed border-black/20 dark:border-white/20 hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ArrowUpDown size={12} /> 순서 바꾸기
             </button>
           </div>
         )}

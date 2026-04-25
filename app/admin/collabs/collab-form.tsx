@@ -96,6 +96,10 @@ export default function CollabForm({
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!form.author_id) {
+      setError("작성자를 선택해주세요.");
+      return;
+    }
     startTransition(async () => {
       try {
         if (mode === "create") {
@@ -129,29 +133,28 @@ export default function CollabForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
+      <Field label="작성자" required>
+        <select
+          value={form.author_id}
+          onChange={(e) => set("author_id", e.target.value)}
+          required
+          className={INPUT}
+        >
+          <option value="">선택</option>
+          {profiles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name ?? "(이름 없음)"}
+              {p.affiliation ? ` · ${p.affiliation}` : ""}
+            </option>
+          ))}
+        </select>
+      </Field>
+
       <JsonFillPanel
         prompt={AI_PROMPT}
         template={JSON_TEMPLATE}
-        note="작성자(author_id)는 아래 필드에서 선택하고, 나머지 필드만 AI로 생성"
         onApply={applyJson}
-      >
-        <div className="flex items-center gap-2 px-2.5 py-1.5">
-          <span className="text-[11px] text-text-5 shrink-0">작성자</span>
-          <select
-            value={form.author_id}
-            onChange={(e) => set("author_id", e.target.value)}
-            className="flex-1 px-2 py-1 rounded-md border border-border bg-surface text-[12px] text-text-1 outline-none focus:border-[#999f54]"
-          >
-            <option value="">선택</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name ?? "(이름 없음)"}
-                {p.affiliation ? ` · ${p.affiliation}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      </JsonFillPanel>
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="제목">
@@ -174,22 +177,6 @@ export default function CollabForm({
             {kinds.map((k) => (
               <option key={k.key} value={k.key}>
                 {k.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="작성자">
-          <select
-            value={form.author_id}
-            onChange={(e) => set("author_id", e.target.value)}
-            required
-            className={INPUT}
-          >
-            <option value="">선택</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name ?? "(이름 없음)"}
-                {p.affiliation ? ` · ${p.affiliation}` : ""}
               </option>
             ))}
           </select>
@@ -288,7 +275,8 @@ export default function CollabForm({
           </button>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !form.author_id}
+            title={!form.author_id ? "작성자를 선택하세요" : undefined}
             className="px-4 py-2 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             {pending && !deleting ? "저장 중..." : mode === "create" ? "생성" : "저장"}
@@ -299,10 +287,21 @@ export default function CollabForm({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-text-4 mb-1.5">{label}</span>
+      <span className="block text-xs font-medium text-text-4 mb-1.5">
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </span>
       {children}
     </label>
   );

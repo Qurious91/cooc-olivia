@@ -108,12 +108,19 @@ function ChatRow({
   };
 
   return (
-    <li data-chat-row={room.id} className="relative overflow-hidden">
+    <li
+      data-chat-row={room.id}
+      className="relative overflow-hidden min-h-[68px]"
+    >
       <button
         type="button"
         onClick={onDelete}
         aria-label="대화 삭제"
-        className="absolute right-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-0.5 bg-red-500 text-white text-[11px] font-semibold"
+        style={{
+          width: Math.max(REVEAL, -tx),
+          transition: animating ? "width 200ms" : "none",
+        }}
+        className="absolute right-0 inset-y-0 flex flex-col items-center justify-center gap-0.5 bg-red-500 text-white text-[11px] font-semibold"
       >
         <Trash2 size={16} />
         삭제

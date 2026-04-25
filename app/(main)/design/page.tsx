@@ -2,19 +2,27 @@
 
 import {
   ArrowRight,
+  Bell,
   Briefcase,
   ChefHat,
+  ChevronRight,
   Compass,
+  Eye,
   FlaskConical,
+  Globe,
   Handshake,
   Heart,
   ImagePlus,
+  Lock,
+  Moon,
   Plus,
   Search,
+  Settings,
   Sparkles,
   Store,
   User,
   UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -1227,6 +1235,230 @@ export default function DesignPage() {
                 </div>
                 <div className="text-[9px] text-text-6 text-center">사진 · 타이핑 모두 즉시 반영</div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 p-4 rounded-2xl border border-dashed border-[#999f54]/40 bg-[#999f54]/5 space-y-6">
+        <div className="text-[11px] font-semibold text-text-5 tracking-wider">
+          PROFILE VISIBILITY & FEATURE GATE — UI 패턴
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-[10px] text-text-6">A — 프로필 페이지 하단 섹션 (인라인 통합)</div>
+          <div className="rounded-xl bg-background border border-black/10 dark:border-white/10 p-4 space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-black/5 dark:border-white/5">
+              <span className="w-10 h-10 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
+                <User size={18} strokeWidth={1.75} />
+              </span>
+              <div>
+                <div className="text-sm font-semibold text-text-1">박셰프</div>
+                <div className="text-[11px] text-text-6">헤드셰프 · 성수 다이닝</div>
+              </div>
+              <span className="ml-auto text-[10px] text-text-6">…기존 프로필 섹션들</span>
+            </div>
+
+            <section>
+              <h3 className="text-[11px] font-semibold text-text-5 tracking-wider mb-2">공개 설정</h3>
+              <ul className="divide-y divide-black/5 dark:divide-white/5 border-y border-black/5 dark:border-white/5">
+                <li className="flex items-center gap-3 py-2.5">
+                  <div className="w-20 shrink-0 text-xs text-text-5">공개 레벨</div>
+                  <div className="flex-1 min-w-0" />
+                  <div className="flex gap-1">
+                    {[
+                      { I: Globe, l: "전체", on: true },
+                      { I: Users, l: "회원", on: false },
+                      { I: Lock, l: "비공개", on: false },
+                    ].map((v) => (
+                      <span
+                        key={v.l}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border ${
+                          v.on
+                            ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                            : "bg-surface text-text-4 border-black/15 dark:border-white/15"
+                        }`}
+                      >
+                        <v.I size={10} />
+                        {v.l}
+                      </span>
+                    ))}
+                  </div>
+                </li>
+                {[
+                  { l: "검색 노출", on: true },
+                  { l: "아바타 공개", on: true },
+                  { l: "소속 공개", on: true },
+                  { l: "이메일 공개", on: false },
+                ].map((r) => (
+                  <li key={r.l} className="flex items-center gap-3 py-2.5">
+                    <div className="w-20 shrink-0 text-xs text-text-5">{r.l}</div>
+                    <div className="flex-1" />
+                    <span
+                      className={`shrink-0 w-8 h-4 rounded-full inline-flex items-center p-0.5 ${
+                        r.on ? "bg-[#999f54] justify-end" : "bg-black/20 dark:bg-white/20 justify-start"
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full bg-white" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-[11px] font-semibold text-text-5 tracking-wider mb-2">활동 상태</h3>
+              <ul className="divide-y divide-black/5 dark:divide-white/5 border-y border-black/5 dark:border-white/5">
+                {[
+                  { l: "참여 요청 받기", hint: "off 시 자동 차단", on: true },
+                  { l: "휴식 모드", hint: "내 카드 회색 처리 + 새 요청 멈춤", on: false },
+                ].map((r) => (
+                  <li key={r.l} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs text-text-1">{r.l}</div>
+                      <div className="text-[10px] text-text-6">{r.hint}</div>
+                    </div>
+                    <span
+                      className={`shrink-0 w-8 h-4 rounded-full inline-flex items-center p-0.5 ${
+                        r.on ? "bg-[#999f54] justify-end" : "bg-black/20 dark:bg-white/20 justify-start"
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full bg-white" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-[11px] font-semibold text-text-5 tracking-wider mb-2">알림</h3>
+              <ul className="divide-y divide-black/5 dark:divide-white/5 border-y border-black/5 dark:border-white/5">
+                {[
+                  { l: "새 참여 요청", on: true },
+                  { l: "새 메시지", on: true },
+                  { l: "협업 마감 임박", on: false },
+                ].map((r) => (
+                  <li key={r.l} className="flex items-center gap-3 py-2.5">
+                    <div className="flex-1 text-xs text-text-1">{r.l}</div>
+                    <span
+                      className={`shrink-0 w-8 h-4 rounded-full inline-flex items-center p-0.5 ${
+                        r.on ? "bg-[#999f54] justify-end" : "bg-black/20 dark:bg-white/20 justify-start"
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full bg-white" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <p className="text-[10px] text-text-6 pt-1 border-t border-black/5 dark:border-white/5">
+              프로필 페이지가 길어지는 대신 한 화면에서 모든 설정 접근 가능
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-[10px] text-text-6">B — 별도 /settings 페이지</div>
+          <div className="rounded-xl bg-background border border-black/10 dark:border-white/10 overflow-hidden">
+            <div className="px-4 py-3 border-b border-black/5 dark:border-white/5 flex items-center gap-2">
+              <Settings size={16} className="text-[#999f54]" />
+              <h3 className="text-sm font-semibold text-text-1">설정</h3>
+              <span className="ml-auto text-[10px] text-text-6">프로필 상단 ⚙ 아이콘에서 진입</span>
+            </div>
+            <ul className="divide-y divide-black/5 dark:divide-white/5">
+              {[
+                {
+                  I: Eye,
+                  l: "공개",
+                  s: "전체 공개 · 검색 노출 · 이메일 비공개",
+                },
+                { I: Handshake, l: "활동", s: "요청 받는 중" },
+                { I: Bell, l: "알림", s: "3 항목 활성" },
+                { I: User, l: "계정", s: "이메일 / 비밀번호 / 로그아웃" },
+              ].map((row) => (
+                <li key={row.l}>
+                  <div className="flex items-center gap-3 px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]">
+                    <span className="w-8 h-8 rounded-lg bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
+                      <row.I size={14} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-text-1">{row.l}</div>
+                      <div className="text-[11px] text-text-6 truncate">{row.s}</div>
+                    </div>
+                    <ChevronRight size={14} className="text-text-6 shrink-0" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[10px] text-text-6 p-4 border-t border-black/5 dark:border-white/5">
+              카테고리 각각 클릭하면 전용 화면에서 토글/옵션 노출. 프로필 페이지는 깔끔하게 유지
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-[10px] text-text-6">C — 배지 요약 + 편집 모드에서만 설정 열림</div>
+          <div className="rounded-xl bg-background border border-black/10 dark:border-white/10 p-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="w-14 h-14 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
+                <User size={24} strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-semibold text-text-1">박셰프</div>
+                <div className="text-[11px] text-text-6">헤드셰프 · 성수 다이닝</div>
+                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#999f54]/15 text-[10px] text-[#4a4d22] dark:text-[#d4d8a8] font-semibold">
+                  <Globe size={10} />
+                  전체 공개
+                  <span className="text-text-6">·</span>
+                  요청 받는 중
+                </div>
+              </div>
+            </div>
+            <p className="text-[10px] text-text-6 -mt-2">↑ 평소 뷰 모드: 배지 한 줄 요약으로만 노출</p>
+
+            <div className="pt-3 mt-2 border-t border-black/5 dark:border-white/5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-text-5 tracking-wider">편집 모드</span>
+                <span className="text-[10px] text-text-6">수정 버튼 누르면 아래 노출</span>
+              </div>
+
+              <div className="rounded-lg border border-black/10 dark:border-white/10 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <Globe size={14} className="text-text-6" />
+                  <span className="text-text-4">공개 레벨</span>
+                  <span className="ml-auto text-text-1 font-semibold">전체</span>
+                  <ChevronRight size={12} className="text-text-6" />
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Handshake size={14} className="text-text-6" />
+                  <span className="text-text-4">참여 요청</span>
+                  <span className="ml-auto">
+                    <span className="w-8 h-4 rounded-full bg-[#999f54] justify-end inline-flex items-center p-0.5">
+                      <span className="w-3 h-3 rounded-full bg-white" />
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Moon size={14} className="text-text-6" />
+                  <span className="text-text-4">휴식 모드</span>
+                  <span className="ml-auto">
+                    <span className="w-8 h-4 rounded-full bg-black/20 dark:bg-white/20 justify-start inline-flex items-center p-0.5">
+                      <span className="w-3 h-3 rounded-full bg-white" />
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Bell size={14} className="text-text-6" />
+                  <span className="text-text-4">알림</span>
+                  <span className="ml-auto text-text-6">3 항목 활성</span>
+                  <ChevronRight size={12} className="text-text-6" />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-text-6">
+                압축된 줄 단위 뷰. 세부 토글은 각 행 탭으로 별도 패널
+              </p>
             </div>
           </div>
         </div>

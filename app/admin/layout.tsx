@@ -26,12 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </span>
         </Link>
         <AdminSearch className="flex-1 min-w-0 max-w-xl min-[1100px]:ml-auto" />
-        <div className="shrink-0 flex items-center gap-1 ml-auto">
-          <Link href="/home" className="text-xs text-text-5 hover:text-text-3 py-1">
-            앱으로
-          </Link>
-          <AdminMobileMenu />
-        </div>
+        <AdminMobileMenu />
       </header>
       <div className="flex flex-1">
         <AdminSidebar />

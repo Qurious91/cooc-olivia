@@ -91,13 +91,20 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
     setKeywordDraft("");
   };
 
+  const missingRequired =
+    !form.name?.trim() || !form.role?.trim() || !form.affiliation?.trim();
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (missingRequired) {
+      setError("이름, 역할, 소속을 모두 입력해주세요.");
+      return;
+    }
     startTransition(async () => {
       const res = await updateProfile(form);
       if (res.error) setError(res.error);
-      else router.refresh();
+      else router.push("/admin/profiles");
     });
   };
 
@@ -119,33 +126,35 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
       <JsonFillPanel
         prompt={AI_PROMPT}
         template={JSON_TEMPLATE}
-        note="어드민 권한(is_admin)은 아래 체크박스로 직접 설정, 나머지 필드만 AI로 생성"
         onApply={applyJson}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="이름">
+        <Field label="이름" required>
           <input
             type="text"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
+            required
             className={INPUT}
           />
         </Field>
-        <Field label="역할">
+        <Field label="역할" required>
           <input
             type="text"
             value={form.role}
             onChange={(e) => set("role", e.target.value)}
             placeholder="예: creator, brand"
+            required
             className={INPUT}
           />
         </Field>
-        <Field label="소속">
+        <Field label="소속" required>
           <input
             type="text"
             value={form.affiliation}
             onChange={(e) => set("affiliation", e.target.value)}
+            required
             className={INPUT}
           />
         </Field>
@@ -225,16 +234,6 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
         </div>
       </Field>
 
-      <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer select-none w-fit">
-        <input
-          type="checkbox"
-          checked={form.is_admin}
-          onChange={(e) => set("is_admin", e.target.checked)}
-          className="w-4 h-4 accent-[#999f54]"
-        />
-        어드민 권한
-      </label>
-
       {error && (
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400">
           <AlertCircle size={14} className="mt-0.5 shrink-0" />
@@ -262,7 +261,8 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
           </button>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || missingRequired}
+            title={missingRequired ? "이름, 역할, 소속을 입력하세요" : undefined}
             className="px-4 py-2 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             {pending && !deleting ? "저장 중..." : "저장"}
@@ -273,10 +273,21 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-text-4 mb-1.5">{label}</span>
+      <span className="block text-xs font-medium text-text-4 mb-1.5">
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </span>
       {children}
     </label>
   );

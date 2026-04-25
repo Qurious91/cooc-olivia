@@ -60,13 +60,13 @@ export default function AdminMobileMenu() {
   };
 
   return (
-    <div ref={wrapRef} className="relative min-[1100px]:hidden">
+    <div ref={wrapRef} className="relative -mx-1.5 min-[1100px]:hidden">
       <button
         type="button"
         aria-label="메뉴"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center w-8 h-8 rounded-md text-text-4 hover:bg-black/5 dark:hover:bg-white/5"
+        className="flex items-center justify-center p-1.5 rounded-md text-text-4 hover:bg-black/5 dark:hover:bg-white/5"
       >
         {open ? <X size={18} /> : <Menu size={18} />}
       </button>

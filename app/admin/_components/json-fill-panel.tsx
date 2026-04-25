@@ -88,11 +88,14 @@ export default function JsonFillPanel({
             {children && (
               <div className="border-b border-black/5 dark:border-white/10">{children}</div>
             )}
-            <div className="relative">
+            <div className="px-2.5 py-2 border-b border-black/5 dark:border-white/10 space-y-1.5">
+              <p className="text-[12px] text-text-5 leading-relaxed">
+                프롬프트를 복사해 생성형 AI(ChatGPT·Claude 등)에 붙여넣고 원하는 주제를 적으면 JSON이 만들어져요. 결과를 아래 입력칸에 붙여넣고 [채우기]를 누르세요.
+              </p>
               <button
                 type="button"
                 onClick={copyPrompt}
-                className={`absolute top-1.5 right-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border transition-colors ${
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border transition-colors ${
                   copied
                     ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
                     : "bg-surface border-black/5 dark:border-white/10 text-text-4 hover:text-text-1 hover:bg-black/5 dark:hover:bg-white/5"
@@ -101,10 +104,10 @@ export default function JsonFillPanel({
                 {copied ? <Check size={11} /> : <Copy size={11} />}
                 {copied ? "복사됨" : "프롬프트 복사"}
               </button>
-              <pre className="px-2.5 py-2 pr-24 text-[11px] leading-relaxed text-text-3 whitespace-pre-wrap font-mono">
-                {prompt}
-              </pre>
             </div>
+            <pre className="px-2.5 py-2 text-[11px] leading-relaxed text-text-3 whitespace-pre-wrap font-mono">
+              {prompt}
+            </pre>
           </div>
           <textarea
             value={text}
