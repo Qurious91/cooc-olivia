@@ -1,15 +1,15 @@
 "use client";
 
-import { ArrowLeft, Handshake, Pencil, Plus, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Handshake, Paperclip, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import Modal from "../../modal";
 import PeriodPicker, { periodFromColumns, periodToColumns } from "../../period-picker";
-import { createCoocRequestChat } from "../../data/chats";
 import { createClient } from "@/lib/supabase/client";
 
-const AUTHORS = ["소속", "이름", "둘 다"] as const;
+// author 노출 방식은 닉네임으로 고정 (제안 작성자 = 로그인한 사용자의 닉네임).
+const AUTHOR_MODE = "닉네임";
 
 type CollabKindRow = {
   key: string;
@@ -17,9 +17,9 @@ type CollabKindRow = {
   position: number;
 };
 
+// 기간/장소는 필수 입력으로 폼에 항상 노출. photos만 옵션으로 토글.
 const OPTIONAL_FIELDS = [
-  { key: "period", label: "기간", placeholder: "예) 2026.05.15 또는 2026.05.15 – 2026.05.20" },
-  { key: "location", label: "장소", placeholder: "예) 서울 성수" },
+  { key: "photos", label: "사진", placeholder: "협업과 관련된 사진을 첨부해요" },
 ] as const;
 
 type OptKey = (typeof OPTIONAL_FIELDS)[number]["key"];
@@ -53,13 +53,8 @@ function NewCollab() {
       }
     })();
   }, []);
-  const [author, setAuthor] = useState<(typeof AUTHORS)[number]>("이름");
-  const [profile, setProfile] = useState({ name: "", affiliation: "" });
+  const [profile, setProfile] = useState({ nickname: "", name: "" });
   const [title, setTitle] = useState("");
-  const hasAffiliation = profile.affiliation.trim().length > 0;
-  const visibleAuthors = hasAffiliation
-    ? AUTHORS
-    : (AUTHORS.filter((a) => a === "이름") as unknown as typeof AUTHORS);
 
   useEffect(() => {
     const supabase = createClient();
@@ -70,21 +65,17 @@ function NewCollab() {
       if (!user) return;
       const { data: row } = await supabase
         .from("profiles")
-        .select("name, affiliation")
+        .select("nickname, name")
         .eq("id", user.id)
         .single();
       if (row) {
         setProfile({
+          nickname: row.nickname ?? "",
           name: row.name ?? "",
-          affiliation: row.affiliation ?? "",
         });
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!hasAffiliation && author !== "이름") setAuthor("이름");
-  }, [hasAffiliation, author]);
 
   useEffect(() => {
     if (!editId) return;
@@ -100,32 +91,41 @@ function NewCollab() {
       if (!data) return;
       const row = data as any;
       if (row.collab_kinds?.label) setKind(row.collab_kinds.label);
-      if (row.author) setAuthor(row.author);
       setTitle(row.title ?? "");
       setDesc(row.description ?? "");
-      const period = periodFromColumns({
+      const periodValue = periodFromColumns({
         period_start: row.period_start,
         period_end: row.period_end,
         period_start_time: row.period_start_time,
         period_end_time: row.period_end_time,
       });
-      const next: Partial<Record<OptKey, string>> = {};
-      if (period) next.period = period;
-      if (row.location) next.location = row.location;
-      setExtras(next);
+      if (periodValue) setPeriod(periodValue);
+      if (row.location) setLocation(row.location);
+
+      const { data: photoRows } = await supabase
+        .from("collab_photos")
+        .select("id, image_url")
+        .eq("collab_id", editId)
+        .order("position", { ascending: true });
+      if (photoRows && photoRows.length > 0) {
+        setExistingPhotos(
+          photoRows as { id: string; image_url: string }[],
+        );
+        setExtras((prev) => ({ ...prev, photos: "" }));
+      }
     })();
   }, [editId]);
 
-  const authorPreview =
-    author === "이름"
-      ? profile.name
-      : author === "소속"
-      ? profile.affiliation
-      : [profile.affiliation, profile.name].filter(Boolean).join(" · ");
   const [desc, setDesc] = useState("");
+  const [period, setPeriod] = useState("");
+  const [location, setLocation] = useState("");
   const [extras, setExtras] = useState<Partial<Record<OptKey, string>>>({});
+  const [collabPhotos, setCollabPhotos] = useState<File[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<
+    { id: string; image_url: string }[]
+  >([]);
+  const [removedPhotoIds, setRemovedPhotoIds] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [coocConfirmOpen, setCoocConfirmOpen] = useState(false);
 
   const addedKeys = OPTIONAL_FIELDS.filter((f) => f.key in extras);
   const availableFields = OPTIONAL_FIELDS.filter((f) => !(f.key in extras));
@@ -140,11 +140,20 @@ function NewCollab() {
       delete next[key];
       return next;
     });
+    if (key === "photos") {
+      setCollabPhotos([]);
+      // 기존 사진은 추가 항목 통째로 제거 시 모두 삭제 표시
+      setRemovedPhotoIds(new Set(existingPhotos.map((p) => p.id)));
+    }
   };
   const patchField = (key: OptKey, value: string) =>
     setExtras((prev) => ({ ...prev, [key]: value }));
 
-  const canSubmit = title.trim().length > 0 && desc.trim().length > 0;
+  const canSubmit =
+    title.trim().length > 0 &&
+    desc.trim().length > 0 &&
+    period.trim().length > 0 &&
+    location.trim().length > 0;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,15 +165,16 @@ function NewCollab() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    const periodCols = periodToColumns(extras.period?.trim() || "");
+    const periodCols = periodToColumns(period.trim());
     const payload = {
       kind: kindKey,
-      author,
+      author: AUTHOR_MODE,
       title: title.trim(),
       description: desc.trim(),
       ...periodCols,
-      location: extras.location?.trim() || null,
+      location: location.trim(),
     };
+    let collabId = editId ?? null;
     if (isEdit && editId) {
       const { error } = await supabase
         .from("collabs")
@@ -172,18 +182,65 @@ function NewCollab() {
         .eq("id", editId);
       if (error) return;
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from("collabs")
-        .insert({ author_id: user.id, ...payload });
-      if (error) return;
+        .insert({ author_id: user.id, ...payload })
+        .select("id")
+        .single();
+      if (error || !inserted) return;
+      collabId = inserted.id as string;
     }
-    router.push("/projects");
-  };
 
-  const confirmRequestCooc = () => {
-    const room = createCoocRequestChat();
-    setCoocConfirmOpen(false);
-    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
+    if (!collabId) {
+      router.push("/projects");
+      return;
+    }
+
+    // 1) 삭제 표시된 기존 사진들 DB에서 제거 (storage 객체는 분리된 정리 작업으로 처리)
+    if (removedPhotoIds.size > 0) {
+      await supabase
+        .from("collab_photos")
+        .delete()
+        .in("id", [...removedPhotoIds]);
+    }
+
+    // 2) 새로 첨부된 파일 storage 업로드 + collab_photos insert
+    if (collabPhotos.length > 0) {
+      const remainingExistingCount = existingPhotos.filter(
+        (p) => !removedPhotoIds.has(p.id),
+      ).length;
+      const uploadedUrls = await Promise.all(
+        collabPhotos.map(async (file) => {
+          const ext = file.name.split(".").pop() || "bin";
+          const filename = `${crypto.randomUUID()}.${ext}`;
+          const path = `${user.id}/${collabId}/${filename}`;
+          const { error: uploadError } = await supabase.storage
+            .from("collab")
+            .upload(path, file, { upsert: false });
+          if (uploadError) return null;
+          const { data: pub } = supabase.storage
+            .from("collab")
+            .getPublicUrl(path);
+          return pub.publicUrl;
+        }),
+      );
+      const insertRows = uploadedUrls
+        .map((url, i) =>
+          url
+            ? {
+                collab_id: collabId,
+                image_url: url,
+                position: remainingExistingCount + i,
+              }
+            : null,
+        )
+        .filter((r): r is NonNullable<typeof r> => !!r);
+      if (insertRows.length > 0) {
+        await supabase.from("collab_photos").insert(insertRows);
+      }
+    }
+
+    router.push("/projects");
   };
 
   return (
@@ -238,34 +295,18 @@ function NewCollab() {
 
           <div>
             <label className="block text-xs font-medium text-text-4 mb-1.5">
-              작성자 <span aria-hidden className="text-red-500">*</span>
+              작성자
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {visibleAuthors.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => setAuthor(a)}
-                  className={`px-2.5 py-1 rounded-full text-xs whitespace-nowrap border ${
-                    author === a
-                      ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
-                      : "bg-surface text-text-4 border-black/15 dark:border-white/15"
-                  }`}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-            {profile.name ? (
-              <p className="mt-1.5 text-[11px] text-text-6">
-                상대에겐 이렇게 보여요 · <span className="text-text-4 font-medium">{authorPreview}</span>
+            {profile.nickname ? (
+              <p className="text-sm text-text-2 font-medium">
+                {profile.nickname}
               </p>
             ) : (
               <Link
                 href="/profile"
-                className="mt-1.5 inline-block text-[11px] text-[#999f54] hover:underline"
+                className="inline-block text-[11px] text-[#999f54] hover:underline"
               >
-                온보딩을 완료해주세요
+                닉네임이 없어요. 온보딩을 완료해주세요
               </Link>
             )}
           </div>
@@ -298,16 +339,39 @@ function NewCollab() {
               placeholder="협업 내용을 자유롭게"
               className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
             />
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                disabled={availableFields.length === 0}
-                className="inline-flex items-center gap-1 text-[11px] text-text-5 px-2.5 py-1 rounded-full border border-dashed border-black/20 dark:border-white/20 hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <Plus size={12} /> 항목 추가
-              </button>
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-text-4 mb-1.5">
+              기간 <span aria-hidden className="text-red-500">*</span>
+            </label>
+            <PeriodPicker value={period} onChange={setPeriod} />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-text-4 mb-1.5">
+              장소 <span aria-hidden className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              required
+              aria-required="true"
+              placeholder="예) 서울 성수"
+              className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
+            />
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              disabled={availableFields.length === 0}
+              className="inline-flex items-center gap-1 text-[11px] text-text-5 px-2.5 py-1 rounded-full border border-dashed border-black/20 dark:border-white/20 hover:border-[#999f54] hover:text-[#999f54] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus size={12} /> 항목 추가
+            </button>
           </div>
 
           {addedKeys.map((f) => (
@@ -323,20 +387,99 @@ function NewCollab() {
                   <X size={12} /> 제거
                 </button>
               </div>
-              {f.key === "period" ? (
-                <PeriodPicker
-                  value={extras[f.key] ?? ""}
-                  onChange={(v) => patchField(f.key, v)}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={extras[f.key] ?? ""}
-                  onChange={(e) => patchField(f.key, e.target.value)}
-                  placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54]"
-                />
-              )}
+              <div className="space-y-2">
+                <label className="flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-lg border-2 border-dashed border-black/15 dark:border-white/15 cursor-pointer hover:border-[#999f54] hover:bg-[#999f54]/5 text-center">
+                  <Upload size={20} className="text-text-5" />
+                  <span className="text-xs font-medium text-text-3">
+                    클릭해서 사진 선택
+                  </span>
+                  <span className="text-[10px] text-text-6">
+                    JPG, PNG, WebP (여러 장 가능)
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => {
+                      const picked = e.target.files
+                        ? Array.from(e.target.files)
+                        : [];
+                      if (picked.length === 0) return;
+                      setCollabPhotos((prev) => [...prev, ...picked]);
+                      e.target.value = "";
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+                {(existingPhotos.some((p) => !removedPhotoIds.has(p.id)) ||
+                  collabPhotos.length > 0) && (
+                  <ul className="rounded-lg border border-border divide-y divide-black/5 dark:divide-white/10 overflow-hidden">
+                    {existingPhotos
+                      .filter((p) => !removedPhotoIds.has(p.id))
+                      .map((p) => (
+                        <li
+                          key={p.id}
+                          className="flex items-center gap-2 px-3 py-2"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={p.image_url}
+                            alt=""
+                            className="w-10 h-10 object-cover rounded shrink-0"
+                          />
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-[12px] text-text-2 truncate">
+                              기존 사진
+                            </span>
+                            <span className="block text-[10px] text-text-6 truncate">
+                              {p.image_url.split("/").slice(-1)[0]}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRemovedPhotoIds(
+                                (prev) => new Set([...prev, p.id]),
+                              )
+                            }
+                            aria-label="삭제"
+                            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-5 hover:text-[#c0392b]"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </li>
+                      ))}
+                    {collabPhotos.map((file, idx) => (
+                      <li
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center gap-2 px-3 py-2"
+                      >
+                        <Paperclip size={14} className="text-text-5 shrink-0" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[12px] text-text-2 truncate">
+                            {file.name}
+                          </span>
+                          <span className="block text-[10px] text-text-6">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollabPhotos((prev) =>
+                              prev.filter((_, i) => i !== idx),
+                            )
+                          }
+                          aria-label="삭제"
+                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-5 hover:text-[#c0392b]"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           ))}
 
@@ -360,23 +503,6 @@ function NewCollab() {
             </button>
           </div>
 
-          {!isEdit && (
-            <div className="pt-4 mt-2 border-t border-black/10 dark:border-white/10">
-              <button
-                type="button"
-                onClick={() => setCoocConfirmOpen(true)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border border-black/10 dark:border-white/10 bg-[#999f54]/10 dark:bg-[#999f54]/20 hover:bg-[#999f54]/20 text-left"
-              >
-                <Sparkles size={20} className="text-text-6 shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-text-4">COOC에 요청하기</div>
-                  <p className="text-[11px] text-text-6 mt-0.5">
-                    아직 계획이 추상적이라면 COOC 에이전시에 맡겨보세요!
-                  </p>
-                </div>
-              </button>
-            </div>
-          )}
         </form>
       </main>
 
@@ -410,34 +536,6 @@ function NewCollab() {
         )}
       </Modal>
 
-      <Modal
-        open={coocConfirmOpen}
-        onClose={() => setCoocConfirmOpen(false)}
-        title="COOC에 요청하기"
-        size="sm"
-      >
-        <div className="flex flex-col gap-5">
-          <p className="text-sm text-text-3 leading-relaxed">
-            COOC와의 채팅으로 바로 연결됩니다.
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setCoocConfirmOpen(false)}
-              className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={confirmRequestCooc}
-              className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

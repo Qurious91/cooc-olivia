@@ -130,6 +130,16 @@ export default function EditForm({ initial }: { initial: UpdateProfileInput }) {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="이메일">
+          <input
+            type="email"
+            value={form.email}
+            readOnly
+            disabled
+            title="이메일은 auth.users와 동기화되며 직접 수정할 수 없어요."
+            className={`${INPUT} bg-black/[0.03] dark:bg-white/[0.03] cursor-not-allowed text-text-5`}
+          />
+        </Field>
         <Field label="이름" required>
           <input
             type="text"

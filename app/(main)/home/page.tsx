@@ -2,7 +2,6 @@
 
 import {
   ChefHat,
-  FlaskConical,
   Handshake,
   Store,
   UserPlus,
@@ -19,7 +18,6 @@ import HeroSlider, { type HeroSlide } from "./hero-slider";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   UserPlus,
-  FlaskConical,
   ChefHat,
   Store,
   Handshake,
@@ -154,7 +152,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="flex gap-2 px-4 py-2 border-b border-black/5 dark:border-white/5 overflow-x-auto">
+      <div className="hidden flex gap-2 px-4 py-2 border-b border-black/5 dark:border-white/5 overflow-x-auto">
         {TABS.map((k) => (
           <button
             key={k}
@@ -193,8 +191,11 @@ export default function Home() {
             />
 
             <section className="rounded-xl bg-surface p-5 shadow-sm border border-black/5 dark:border-white/5">
-              <h3 className="text-base font-semibold text-text-1 mb-3">어떤 협업을 원하시나요?</h3>
-              <div className="grid grid-cols-5 gap-2">
+              <h3 className="text-base font-semibold text-text-1 mb-1">어떤 협업을 원하시나요?</h3>
+              <p className="text-[10px] text-red-500 leading-snug mb-3">
+                참여자를 모집 중인 협업을 모아보는 곳. 아래 버튼 클릭과 연결되는 페이지의 칩 선택 동작이 중복돼요.
+              </p>
+              <div className="grid grid-cols-4 gap-2">
                 {collabKinds.map((k) => {
                   const Icon = ICON_MAP[k.icon] ?? Handshake;
                   return (
@@ -214,14 +215,19 @@ export default function Home() {
             </section>
 
             <section className="rounded-xl bg-surface p-5 shadow-sm border border-black/5 dark:border-white/5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold text-text-1">진행중인 협업</h3>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
-                    제작중
-                  </span>
+              <div className="flex items-start justify-between mb-4 gap-2">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-semibold text-text-1">현재 지원자가 많은 협업</h3>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                      제작중
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-red-500 leading-snug">
+                    &lsquo;진행중인 협업&rsquo;에서 지원자 많은 것만 필터한 모음. 아래처럼 사진 카드로 노출하려면 협업 생성·노출 방식 조정이 필요해요.
+                  </p>
                 </div>
-                <Link href="/ongoing" className="text-xs text-[#999f54] hover:text-[#7a7f43]">전체보기</Link>
+                <Link href="/ongoing" className="shrink-0 text-xs text-[#999f54] hover:text-[#7a7f43]">전체보기</Link>
               </div>
               <ul
                 ref={ongoingRef}

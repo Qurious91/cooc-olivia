@@ -1,285 +1,216 @@
-export type ChatMessage = {
+// 1:1 채팅 DB 헬퍼.
+// chat_rooms는 (collab_id, applicant_id) 쌍으로 유니크. 작성자(collab.author)와 신청자가 멤버.
+// 모든 조회/쓰기는 RLS로 통제됨 — 멤버 외엔 접근 불가.
+
+import { createClient } from "@/lib/supabase/client";
+
+export type ChatMessageRow = {
   id: string;
-  from: "me" | "them" | "system";
+  room_id: string;
+  sender_id: string;
   text: string;
-  time: number;
+  created_at: string;
 };
 
-export type ChatRoom = {
+export type ChatRoomRow = {
   id: string;
-  withName: string;
-  withRole: string;
-  sourceTitle: string;
-  messages: ChatMessage[];
-  createdAt: number;
+  collab_id: string;
+  applicant_id: string;
+  author_last_read_at: string;
+  applicant_last_read_at: string;
+  created_at: string;
+  updated_at: string;
 };
 
-const KEY = "cooc.chats.v1";
+/**
+ * (collab, applicant) 쌍의 채팅방을 찾거나 새로 만들어 id를 반환.
+ * 동시 호출 시 unique 제약으로 한쪽 insert가 실패해도 select fallback으로 동일 id 반환.
+ */
+export async function findOrCreateChatRoom(
+  collabId: string,
+  applicantId: string,
+): Promise<string | null> {
+  const supabase = createClient();
 
-function makeId() {
-  try {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  } catch {}
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
+  // 우선 select — 이미 존재하면 그대로 반환
+  const { data: existing } = await supabase
+    .from("chat_rooms")
+    .select("id")
+    .eq("collab_id", collabId)
+    .eq("applicant_id", applicantId)
+    .maybeSingle();
+  if (existing?.id) return existing.id as string;
 
-function read(): ChatRoom[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as ChatRoom[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  // 없으면 insert. 중복이면 다시 select.
+  const { data: created, error } = await supabase
+    .from("chat_rooms")
+    .insert({ collab_id: collabId, applicant_id: applicantId })
+    .select("id")
+    .single();
+  if (created?.id) return created.id as string;
+
+  if (error) {
+    const { data: race } = await supabase
+      .from("chat_rooms")
+      .select("id")
+      .eq("collab_id", collabId)
+      .eq("applicant_id", applicantId)
+      .maybeSingle();
+    return race?.id ?? null;
   }
+  return null;
 }
 
-function write(rooms: ChatRoom[]) {
-  window.localStorage.setItem(KEY, JSON.stringify(rooms));
+/**
+ * 룸의 메시지를 시간 오름차순으로 fetch.
+ */
+export async function loadChatMessages(
+  roomId: string,
+): Promise<ChatMessageRow[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("chat_messages")
+    .select("id, room_id, sender_id, text, created_at")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true });
+  return (data ?? []) as ChatMessageRow[];
 }
 
-export function loadChats(): ChatRoom[] {
-  return read().sort((a, b) => lastTime(b) - lastTime(a));
+/**
+ * 메시지 전송. RLS가 sender_id = auth.uid() + 룸 멤버 조건 검증.
+ */
+export async function sendChatMessage(
+  roomId: string,
+  senderId: string,
+  text: string,
+): Promise<ChatMessageRow | null> {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({ room_id: roomId, sender_id: senderId, text: trimmed })
+    .select("id, room_id, sender_id, text, created_at")
+    .single();
+  if (error || !data) return null;
+  return data as ChatMessageRow;
 }
 
-export function getChat(id: string): ChatRoom | null {
-  return read().find((r) => r.id === id) ?? null;
+/**
+ * 본인의 last_read_at 갱신 (역할에 따라 author_last_read_at 또는 applicant_last_read_at).
+ */
+export async function markChatRead(
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = createClient();
+  // 룸 가져와서 내가 author인지 applicant인지 판단
+  const { data: room } = await supabase
+    .from("chat_rooms")
+    .select("collab_id, applicant_id")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!room) return;
+  const { data: collab } = await supabase
+    .from("collabs")
+    .select("author_id")
+    .eq("id", room.collab_id)
+    .maybeSingle();
+  const isAuthor = collab?.author_id === userId;
+  const isApplicant = room.applicant_id === userId;
+  if (!isAuthor && !isApplicant) return;
+  const patch = isAuthor
+    ? { author_last_read_at: new Date().toISOString() }
+    : { applicant_last_read_at: new Date().toISOString() };
+  await supabase.from("chat_rooms").update(patch).eq("id", roomId);
 }
 
-export function findChatByTarget(
-  withName: string,
-  withRole: string,
-  sourceTitle: string,
-): ChatRoom | null {
-  return (
-    read().find(
-      (r) =>
-        r.withName === withName &&
-        r.withRole === withRole &&
-        r.sourceTitle === sourceTitle,
-    ) ?? null
+/**
+ * 내가 멤버인 모든 룸을 가져옴 (작성자이거나 신청자인 경우).
+ * 메시지 미리보기·상대방 프로필도 함께 포함.
+ */
+export type ChatRoomListItem = {
+  id: string;
+  collabTitle: string;
+  collabId: string;
+  otherUserId: string;
+  otherNickname: string;
+  otherAvatarUrl: string | null;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+};
+
+export async function loadMyChatRooms(
+  userId: string,
+): Promise<ChatRoomListItem[]> {
+  const supabase = createClient();
+
+  // 1. 내가 신청자거나, 내가 작성자인 collab의 룸을 모두 가져옴
+  const { data: rows } = await supabase
+    .from("chat_rooms")
+    .select(
+      "id, collab_id, applicant_id, author_last_read_at, applicant_last_read_at, " +
+        "collabs!chat_rooms_collab_id_fkey(id, title, author_id, " +
+        "profiles!collabs_author_id_fkey(id, nickname, name, avatar_url)" +
+        "), " +
+        "applicant:profiles!chat_rooms_applicant_id_fkey(id, nickname, name, avatar_url)",
+    )
+    .order("updated_at", { ascending: false });
+  if (!rows) return [];
+
+  const roomIds = (rows as any[]).map((r) => r.id as string);
+  if (roomIds.length === 0) return [];
+
+  // 2. 마지막 메시지들을 한꺼번에 fetch
+  const { data: lastMessages } = await supabase
+    .from("chat_messages")
+    .select("room_id, text, created_at")
+    .in("room_id", roomIds)
+    .order("created_at", { ascending: false });
+  const lastByRoom = new Map<string, { text: string; created_at: string }>();
+  for (const m of (lastMessages ?? []) as any[]) {
+    if (!lastByRoom.has(m.room_id)) {
+      lastByRoom.set(m.room_id, { text: m.text, created_at: m.created_at });
+    }
+  }
+
+  // 룸별 안 읽음 카운트 — 내 last_read_at보다 새 메시지 + 상대가 보낸 것만
+  const unreadByRoom = new Map<string, number>();
+  await Promise.all(
+    (rows as any[]).map(async (r) => {
+      const collab = r.collabs ?? null;
+      const isAuthor = collab?.author_id === userId;
+      const since = isAuthor
+        ? r.author_last_read_at
+        : r.applicant_last_read_at;
+      const { count } = await supabase
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("room_id", r.id)
+        .gt("created_at", since)
+        .neq("sender_id", userId);
+      unreadByRoom.set(r.id, count ?? 0);
+    }),
   );
-}
 
-export function createChat(args: {
-  withName: string;
-  withRole: string;
-  sourceTitle: string;
-}): ChatRoom {
-  const existing = findChatByTarget(args.withName, args.withRole, args.sourceTitle);
-  if (existing) return existing;
-
-  const now = Date.now();
-  const greeting = args.sourceTitle
-    ? `안녕하세요! "${args.sourceTitle}" 제안에 합류할 수 있게 되어 감사합니다. 편한 시간에 첫 미팅 잡아볼 수 있을까요?`
-    : "안녕하세요! 수락해 주셔서 감사합니다. 편한 시간에 미팅 잡을 수 있을까요?";
-
-  const room: ChatRoom = {
-    id: makeId(),
-    withName: args.withName,
-    withRole: args.withRole,
-    sourceTitle: args.sourceTitle,
-    createdAt: now,
-    messages: [
-      {
-        id: makeId(),
-        from: "system",
-        text: args.sourceTitle
-          ? `"${args.sourceTitle}" 참여 요청을 수락했어요.`
-          : "참여 요청을 수락했어요.",
-        time: now,
-      },
-      {
-        id: makeId(),
-        from: "them",
-        text: greeting,
-        time: now + 1,
-      },
-    ],
-  };
-
-  const rooms = read();
-  rooms.push(room);
-  write(rooms);
-  return room;
-}
-
-export function createCoocChat(args: {
-  collab: {
-    title: string;
-    kind: string;
-    desc?: string;
-    partner?: string;
-    period?: string;
-  };
-  applicantNames: string[];
-}): ChatRoom {
-  const existing = read().find(
-    (r) => r.withName === "COOC" && r.sourceTitle === args.collab.title,
-  );
-  if (existing) return existing;
-
-  const { collab, applicantNames } = args;
-  const summaryLines = [
-    `[${collab.kind}] ${collab.title}`,
-    collab.desc?.trim() ? `· ${collab.desc.trim()}` : null,
-    collab.partner?.trim() ? `· 찾는 파트너: ${collab.partner.trim()}` : null,
-    collab.period?.trim() ? `· 기간: ${collab.period.trim()}` : null,
-  ].filter(Boolean) as string[];
-
-  const applicantNote =
-    applicantNames.length > 0
-      ? `참여 요청 주신 ${applicantNames.length}분(${applicantNames.join(", ")}) 제가 순서대로 컨택해볼게요. 우선 연결하고 싶은 분이나 꼭 맞춰야 할 조건 있으면 편하게 말씀 주세요.`
-      : "관심 있는 분 생기면 바로 연결 도와드릴게요. 원하시는 프로필 있으시면 알려주세요.";
-
-  const now = Date.now();
-  const room: ChatRoom = {
-    id: makeId(),
-    withName: "COOC",
-    withRole: "에이전시",
-    sourceTitle: collab.title,
-    createdAt: now,
-    messages: [
-      {
-        id: makeId(),
-        from: "system",
-        text: "COOC 에이전시와의 상담이 시작됐어요.",
-        time: now,
-      },
-      {
-        id: makeId(),
-        from: "them",
-        text: "안녕하세요! 이번 제안 맡게 된 COOC 담당자예요.",
-        time: now + 1,
-      },
-      {
-        id: makeId(),
-        from: "them",
-        text: `받은 내용 정리해봤어요.\n\n${summaryLines.join("\n")}\n\n맞게 봤나요?`,
-        time: now + 2,
-      },
-      {
-        id: makeId(),
-        from: "them",
-        text: applicantNote,
-        time: now + 3,
-      },
-    ],
-  };
-
-  const rooms = read();
-  rooms.push(room);
-  write(rooms);
-  return room;
-}
-
-export function createCoocApplyChat(args: {
-  listing: {
-    title: string;
-    host: string;
-    kind: string;
-    detail?: string;
-    budget?: string;
-    capacity?: string;
-    contact?: string;
-  };
-}): ChatRoom {
-  const existing = read().find(
-    (r) => r.withName === "COOC" && r.sourceTitle === args.listing.title,
-  );
-  if (existing) return existing;
-
-  const { listing } = args;
-  const summaryLines = [
-    `[${listing.kind}] ${listing.title}`,
-    `· 주최: ${listing.host}`,
-    listing.detail?.trim() ? `· ${listing.detail.trim()}` : null,
-    listing.budget?.trim() ? `· 예산: ${listing.budget.trim()}` : null,
-    listing.capacity?.trim() ? `· 규모: ${listing.capacity.trim()}` : null,
-  ].filter(Boolean) as string[];
-
-  const now = Date.now();
-  const room: ChatRoom = {
-    id: makeId(),
-    withName: "COOC",
-    withRole: "에이전시",
-    sourceTitle: listing.title,
-    createdAt: now,
-    messages: [
-      {
-        id: makeId(),
-        from: "system",
-        text: "COOC 에이전시와의 상담이 시작됐어요.",
-        time: now,
-      },
-      {
-        id: makeId(),
-        from: "them",
-        text: `안녕하세요! 아래 제안에 참여하고 싶으신 거 맞죠?\n\n${summaryLines.join("\n")}\n\n주최자와의 소개, 일정 조율 도와드릴게요. 관심 있는 포인트나 선호 역할 알려주시면 더 잘 연결해드릴 수 있어요.`,
-        time: now + 1,
-      },
-    ],
-  };
-
-  const rooms = read();
-  rooms.push(room);
-  write(rooms);
-  return room;
-}
-
-export function createCoocRequestChat(): ChatRoom {
-  const existing = read().find(
-    (r) => r.withName === "COOC" && r.sourceTitle === "COOC 에이전시 상담",
-  );
-  if (existing) return existing;
-
-  const now = Date.now();
-  const room: ChatRoom = {
-    id: makeId(),
-    withName: "COOC",
-    withRole: "에이전시",
-    sourceTitle: "COOC 에이전시 상담",
-    createdAt: now,
-    messages: [
-      {
-        id: makeId(),
-        from: "system",
-        text: "COOC 에이전시와의 상담이 시작됐어요.",
-        time: now,
-      },
-      {
-        id: makeId(),
-        from: "them",
-        text: "안녕하세요! COOC 담당자예요. 어떤 도움이 필요하신가요? 협업, 공간, 브랜드 소싱 무엇이든 편하게 말씀 주세요.",
-        time: now + 1,
-      },
-    ],
-  };
-
-  const rooms = read();
-  rooms.push(room);
-  write(rooms);
-  return room;
-}
-
-export function appendMessage(chatId: string, msg: ChatMessage) {
-  const rooms = read();
-  const idx = rooms.findIndex((r) => r.id === chatId);
-  if (idx < 0) return;
-  rooms[idx] = { ...rooms[idx], messages: [...rooms[idx].messages, msg] };
-  write(rooms);
-}
-
-export function deleteChat(id: string) {
-  write(read().filter((r) => r.id !== id));
-}
-
-export function makeMessageId() {
-  return makeId();
-}
-
-function lastTime(r: ChatRoom): number {
-  const last = r.messages[r.messages.length - 1];
-  return last ? last.time : r.createdAt;
+  return (rows as any[]).map((r) => {
+    const collab = r.collabs ?? null;
+    const isAuthor = collab?.author_id === userId;
+    const other = isAuthor ? r.applicant : collab?.profiles;
+    const otherNickname =
+      other?.nickname?.trim() || other?.name?.trim() || "익명";
+    const last = lastByRoom.get(r.id);
+    return {
+      id: r.id,
+      collabTitle: collab?.title ?? "",
+      collabId: collab?.id ?? r.collab_id,
+      otherUserId: other?.id ?? "",
+      otherNickname,
+      otherAvatarUrl: other?.avatar_url ?? null,
+      lastMessage: last?.text ?? null,
+      lastMessageAt: last?.created_at ?? null,
+      unreadCount: unreadByRoom.get(r.id) ?? 0,
+    };
+  });
 }

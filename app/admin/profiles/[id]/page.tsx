@@ -14,7 +14,7 @@ export default async function ProfileDetailPage({
   const { data } = await supabase
     .from("profiles")
     .select(
-      "id, name, role, avatar_url, status, affiliation, job_title, region, keywords, is_admin, created_at, updated_at",
+      "id, name, role, avatar_url, status, affiliation, job_title, region, keywords, is_admin, email, created_at, updated_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -63,6 +63,7 @@ export default async function ProfileDetailPage({
             status: data.status ?? "active",
             is_admin: data.is_admin,
             keywords: data.keywords ?? [],
+            email: data.email ?? "",
           }}
         />
       </div>

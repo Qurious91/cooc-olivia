@@ -46,7 +46,7 @@ function useHideOnScrollDown(threshold = 80) {
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const hidden = useHideOnScrollDown();
   const pathname = usePathname();
-  const hideHeader = /^\/ongoing\/[^/]+$/.test(pathname ?? "");
+  const hideHeader = /^\/(ongoing|archive)\/[^/]+$/.test(pathname ?? "");
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-text-4 min-[1100px]:pl-56 min-[1100px]:pt-14">
       <header className="hidden min-[1100px]:flex fixed top-0 left-0 right-0 h-14 z-40 items-center px-5 bg-background border-b border-[#999f54]/30">

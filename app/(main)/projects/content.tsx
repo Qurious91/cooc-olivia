@@ -12,8 +12,8 @@ import MyCollabs from "./my-collabs";
 
 const TABS = [
   { key: "mine", label: "내가 올린 제안", Icon: Megaphone },
-  { key: "sent", label: "내 신청", Icon: Send },
   { key: "active", label: "진행중", Icon: Briefcase },
+  { key: "sent", label: "내 신청", Icon: Send },
   { key: "liked", label: "찜한 제안", Icon: Heart },
 ] as const;
 
@@ -75,7 +75,7 @@ export default function ProjectsContent() {
           ) : tab === "mine" ? (
             <MyCollabs initialOpenId={openId} />
           ) : tab === "sent" ? (
-            <MyApplications />
+            <MyApplications initialOpenId={openId} />
           ) : (
             <ActiveWorks onCompleted={bumpCompleted} />
           )}

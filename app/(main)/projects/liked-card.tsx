@@ -1,12 +1,10 @@
 "use client";
 
-import { CalendarClock, Check, ChevronDown, Heart, MapPin, Pencil, Sparkles, Trash2, UserPlus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Heart, MapPin, Pencil, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatPeriod, periodFromColumns } from "../../period-picker";
-import Modal from "../../modal";
-import { createCoocApplyChat } from "../../data/chats";
 import { type CollabKind } from "../../data/collabs";
 import { createClient } from "@/lib/supabase/client";
 
@@ -28,7 +26,6 @@ export default function LikedList() {
   const [items, setItems] = useState<LikedItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState<Set<string>>(new Set());
-  const [pendingDelegate, setPendingDelegate] = useState<LikedItem | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -182,18 +179,6 @@ export default function LikedList() {
     }
   };
 
-  const delegateApply = (it: LikedItem) => {
-    const room = createCoocApplyChat({
-      listing: {
-        title: it.title,
-        host: it.host,
-        kind: it.kind,
-        detail: it.detail,
-      },
-    });
-    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
-  };
-
   const onDelete = async (id: string) => {
     const supabase = createClient();
     await supabase.from("collabs").delete().eq("id", id);
@@ -313,11 +298,14 @@ export default function LikedList() {
                   )}
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
-                      onClick={() => toggleApply(it.id)}
+                      onClick={() => {
+                        if (!applied.has(it.id)) toggleApply(it.id);
+                      }}
+                      disabled={applied.has(it.id)}
                       aria-pressed={applied.has(it.id)}
                       className={`inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full font-semibold ${
                         applied.has(it.id)
-                          ? "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40"
+                          ? "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40 cursor-default"
                           : "bg-[#999f54] text-[#F2F0DC]"
                       }`}
                     >
@@ -333,13 +321,6 @@ export default function LikedList() {
                         </>
                       )}
                     </button>
-                    <button
-                      onClick={() => setPendingDelegate(it)}
-                      className="inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full bg-[#999f54]/10 dark:bg-[#999f54]/20 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40 font-semibold hover:bg-[#999f54]/15 dark:hover:bg-[#999f54]/25"
-                    >
-                      <Sparkles size={11} />
-                      COOC에게 맡기기
-                    </button>
                   </div>
                 </>
               )}
@@ -348,38 +329,6 @@ export default function LikedList() {
         </li>
       ))}
       </ul>
-
-      <Modal
-        open={pendingDelegate !== null}
-        onClose={() => setPendingDelegate(null)}
-        title="COOC에게 맡기기"
-        size="sm"
-      >
-        <div className="flex flex-col gap-5">
-          <p className="text-sm text-text-3 leading-relaxed">
-            COOC와의 채팅으로 바로 연결됩니다.
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPendingDelegate(null)}
-              className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (pendingDelegate) delegateApply(pendingDelegate);
-                setPendingDelegate(null);
-              }}
-              className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      </Modal>
     </>
   );
 }

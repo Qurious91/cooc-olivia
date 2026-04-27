@@ -20,16 +20,8 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-export function formatDate(value: string | null | undefined) {
-  if (!value) return "";
-  const [datePart, timePart] = value.split("T");
-  const parts = datePart.split("-");
-  if (parts.length < 2) return value;
-  const [y, m, d] = parts;
-  const dateStr = d ? `${y}.${m}.${d}` : `${y}.${m}`;
-  if (timePart) return `${dateStr} ${timePart}`;
-  return dateStr;
-}
+export { formatDate } from "./period-utils";
+import { formatDate } from "./period-utils";
 
 type Parsed = {
   y: number;
@@ -517,7 +509,7 @@ export default function DatePicker({
         ref={triggerRef}
         type="button"
         onClick={() => (open ? setOpen(false) : openPicker())}
-        className={`${triggerClassName ?? defaultTrigger} text-xs tabular-nums text-left w-full ${
+        className={`${triggerClassName ?? defaultTrigger} tabular-nums text-left w-full ${
           value ? "text-text-1" : "text-text-6"
         }`}
       >

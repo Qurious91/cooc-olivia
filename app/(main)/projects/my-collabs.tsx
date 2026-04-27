@@ -1,18 +1,27 @@
 "use client";
 
-import { Briefcase, CalendarClock, Check, ChevronDown, MapPin, MessageCircle, MoreVertical, Pencil, PlayCircle, Sparkles, Trash2, User, UserPlus } from "lucide-react";
+import { Check, MessageCircle, MoreVertical, Pencil, PlayCircle, Trash2, User, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Modal from "../../modal";
+import CollabCard from "../../_components/collab-card";
+import ProfileModal from "../../_components/profile-modal";
 import { formatPeriod, periodFromColumns } from "../../period-picker";
-import { createChat, createCoocChat } from "../../data/chats";
-import { type Collab, type CollabKind, collabHostLabel } from "../../data/collabs";
+import { findOrCreateChatRoom } from "../../data/chats";
+import { type Collab, type CollabKind } from "../../data/collabs";
 import { createClient } from "@/lib/supabase/client";
 
 type CollabStatus = "recruiting" | "in_progress" | "done" | "cancelled";
 
-type CollabRow = Collab & { location?: string; status: CollabStatus };
+type CollabRow = Collab & {
+  location?: string;
+  status: CollabStatus;
+  authorId: string;
+  authorNickname: string;
+  authorAvatarUrl: string | null;
+  photos: string[];
+};
 
 const STATUS_LABEL: Record<CollabStatus, string> = {
   recruiting: "모집중",
@@ -50,15 +59,14 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
     initialOpenId ? new Set([initialOpenId]) : new Set(),
   );
   const [applications, setApplications] = useState<Application[]>([]);
-  const [pendingDelegate, setPendingDelegate] = useState<{
-    collab: Collab;
-    applicants: Application[];
-  } | null>(null);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [proceedTarget, setProceedTarget] = useState<CollabRow | null>(null);
-  const [revokeTarget, setRevokeTarget] = useState<Application | null>(null);
+  const [declineTarget, setDeclineTarget] = useState<Application | null>(null);
+  const [acceptTarget, setAcceptTarget] = useState<Application | null>(null);
   const [chatTarget, setChatTarget] = useState<{ app: Application; collab: CollabRow } | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [viewProfileUserId, setViewProfileUserId] = useState<string | null>(null);
+  const [myCollabIds, setMyCollabIds] = useState<string[]>([]);
   const menuContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,7 +86,7 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
       if (!user) return;
       const { data, error } = await supabase
         .from("collabs")
-        .select("id, kind, author, title, description, period_start, period_end, period_start_time, period_end_time, location, status, created_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation)")
+        .select("id, kind, author, title, description, period_start, period_end, period_start_time, period_end_time, location, status, created_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, nickname, avatar_url, affiliation), collab_photos(image_url, position)")
         .eq("author_id", user.id)
         .order("created_at", { ascending: false });
       if (error) {
@@ -92,33 +100,50 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
         return;
       }
       if (!data) return;
-      const db: CollabRow[] = data.map((r: any) => ({
-        id: r.id,
-        kind: (r.collab_kinds?.label ?? "") as CollabKind,
-        title: r.title,
-        desc: r.description,
-        partner: "",
-        period: periodFromColumns({
-          period_start: r.period_start,
-          period_end: r.period_end,
-          period_start_time: r.period_start_time,
-          period_end_time: r.period_end_time,
-        }),
-        location: r.location ?? "",
-        createdAt: Date.parse(r.created_at),
-        author: r.author,
-        authorName: r.profiles?.name ?? "",
-        authorAffiliation: r.profiles?.affiliation ?? "",
-        status: (r.status ?? "recruiting") as CollabStatus,
-      }));
+      const db: CollabRow[] = data.map((r: any) => {
+        const photoRows = (r.collab_photos ?? []) as Array<{
+          image_url: string;
+          position: number;
+        }>;
+        const photos = photoRows
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((p) => p.image_url);
+        const nickname = r.profiles?.nickname?.trim() ?? "";
+        const name = r.profiles?.name?.trim() ?? "";
+        return {
+          id: r.id,
+          kind: (r.collab_kinds?.label ?? "") as CollabKind,
+          title: r.title,
+          desc: r.description,
+          partner: "",
+          period: periodFromColumns({
+            period_start: r.period_start,
+            period_end: r.period_end,
+            period_start_time: r.period_start_time,
+            period_end_time: r.period_end_time,
+          }),
+          location: r.location ?? "",
+          createdAt: Date.parse(r.created_at),
+          author: r.author,
+          authorName: name,
+          authorAffiliation: r.profiles?.affiliation ?? "",
+          status: (r.status ?? "recruiting") as CollabStatus,
+          authorId: user.id,
+          authorNickname: nickname || name || "익명",
+          authorAvatarUrl: r.profiles?.avatar_url ?? null,
+          photos,
+        };
+      });
       setItems(db.filter((d) => d.status === "recruiting"));
 
       const myIds = db.map((d) => d.id);
+      setMyCollabIds(myIds);
       if (myIds.length === 0) return;
       const { data: apps, error: appsErr } = await supabase
         .from("collab_applications")
         .select(
-          "id, collab_id, applicant_id, status, message, created_at, applicant_name, applicant_avatar_url, applicant_affiliation, applicant_job_title, applicant_region, applicant_keywords",
+          "id, collab_id, applicant_id, status, message, created_at, profiles!collab_applications_applicant_id_fkey(name, nickname, avatar_url, affiliation, job_title, region, keywords)",
         )
         .in("collab_id", myIds)
         .in("status", ["pending", "accepted"])
@@ -135,20 +160,25 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
       }
       if (!apps) return;
       setApplications(
-        apps.map((r: any) => ({
-          id: r.id,
-          collab_id: r.collab_id,
-          applicant_id: r.applicant_id,
-          status: (r.status ?? "pending") as AppStatus,
-          message: r.message,
-          created_at: r.created_at,
-          applicant_name: r.applicant_name ?? null,
-          applicant_avatar_url: r.applicant_avatar_url ?? null,
-          applicant_affiliation: r.applicant_affiliation ?? null,
-          applicant_job_title: r.applicant_job_title ?? null,
-          applicant_region: r.applicant_region ?? null,
-          applicant_keywords: r.applicant_keywords ?? null,
-        })),
+        apps.map((r: any) => {
+          const p = r.profiles ?? null;
+          const nickname = p?.nickname?.trim() ?? "";
+          const name = p?.name?.trim() ?? "";
+          return {
+            id: r.id,
+            collab_id: r.collab_id,
+            applicant_id: r.applicant_id,
+            status: (r.status ?? "pending") as AppStatus,
+            message: r.message,
+            created_at: r.created_at,
+            applicant_name: nickname || name || null,
+            applicant_avatar_url: p?.avatar_url ?? null,
+            applicant_affiliation: p?.affiliation ?? null,
+            applicant_job_title: p?.job_title ?? null,
+            applicant_region: p?.region ?? null,
+            applicant_keywords: p?.keywords ?? null,
+          };
+        }),
       );
     })();
   }, []);
@@ -167,6 +197,87 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }, [initialOpenId]);
+
+  // 내 collab들에 들어오는 신청을 실시간으로 반영
+  useEffect(() => {
+    if (myCollabIds.length === 0) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`my-collab-applications:${myCollabIds.join("-")}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "collab_applications",
+          filter: `collab_id=in.(${myCollabIds.join(",")})`,
+        },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newRow = payload.new as { id: string };
+            const { data } = await supabase
+              .from("collab_applications")
+              .select(
+                "id, collab_id, applicant_id, status, message, created_at, profiles!collab_applications_applicant_id_fkey(name, nickname, avatar_url, affiliation, job_title, region, keywords)",
+              )
+              .eq("id", newRow.id)
+              .maybeSingle();
+            if (!data) return;
+            const r = data as any;
+            const p = r.profiles ?? null;
+            const nickname = p?.nickname?.trim() ?? "";
+            const name = p?.name?.trim() ?? "";
+            const status = (r.status ?? "pending") as AppStatus;
+            if (status !== "pending" && status !== "accepted") return;
+            const incoming: Application = {
+              id: r.id,
+              collab_id: r.collab_id,
+              applicant_id: r.applicant_id,
+              status,
+              message: r.message,
+              created_at: r.created_at,
+              applicant_name: nickname || name || null,
+              applicant_avatar_url: p?.avatar_url ?? null,
+              applicant_affiliation: p?.affiliation ?? null,
+              applicant_job_title: p?.job_title ?? null,
+              applicant_region: p?.region ?? null,
+              applicant_keywords: p?.keywords ?? null,
+            };
+            setApplications((prev) => {
+              if (prev.some((a) => a.id === incoming.id)) return prev;
+              return [incoming, ...prev];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            const newRow = payload.new as {
+              id: string;
+              status: string;
+              message: string | null;
+            };
+            const status = newRow.status as AppStatus;
+            if (status !== "pending" && status !== "accepted") {
+              setApplications((prev) =>
+                prev.filter((a) => a.id !== newRow.id),
+              );
+            } else {
+              setApplications((prev) =>
+                prev.map((a) =>
+                  a.id === newRow.id
+                    ? { ...a, status, message: newRow.message }
+                    : a,
+                ),
+              );
+            }
+          } else if (payload.eventType === "DELETE") {
+            const oldRow = payload.old as { id: string };
+            setApplications((prev) => prev.filter((a) => a.id !== oldRow.id));
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [myCollabIds]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -194,13 +305,21 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
     });
   };
 
-  const declineApplication = async (appId: string) => {
-    setApplications((prev) => prev.filter((a) => a.id !== appId));
+  const confirmDecline = async () => {
+    const target = declineTarget;
+    if (!target) return;
+    setDeclineTarget(null);
+    const prev = applications;
+    setApplications((list) => list.filter((a) => a.id !== target.id));
+
+    // pending → declined. 신청자는 my-applications에서 "거절됨"으로 확인.
+    // status guard로 withdrawn 등 다른 상태를 덮어쓰지 않도록.
     const supabase = createClient();
     const { error } = await supabase
       .from("collab_applications")
       .update({ status: "declined" })
-      .eq("id", appId);
+      .eq("id", target.id)
+      .eq("status", "pending");
     if (error) {
       console.error(
         "[my-collabs] decline failed",
@@ -209,6 +328,7 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
         error.hint,
         error.code,
       );
+      setApplications(prev);
     }
   };
 
@@ -235,36 +355,11 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
     }
   };
 
-  const confirmRevoke = async () => {
-    const app = revokeTarget;
-    if (!app) return;
-    setRevokeTarget(null);
-    const prev = applications;
-    setApplications((list) => list.filter((a) => a.id !== app.id));
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("collab_applications")
-      .update({ status: "declined" })
-      .eq("id", app.id);
-    if (error) {
-      console.error(
-        "[my-collabs] revoke failed",
-        error.message,
-        error.details,
-        error.hint,
-        error.code,
-      );
-      setApplications(prev);
-    }
-  };
 
-  const openChat = (app: Application, collab: Collab) => {
-    const room = createChat({
-      withName: applicantLabel(app),
-      withRole: app.applicant_job_title ?? "",
-      sourceTitle: collab.title,
-    });
-    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
+  const openChat = async (app: Application, collab: CollabRow) => {
+    const roomId = await findOrCreateChatRoom(collab.id, app.applicant_id);
+    if (!roomId) return;
+    router.push(`/chat?id=${encodeURIComponent(roomId)}`);
   };
 
   const confirmProceed = async () => {
@@ -304,20 +399,6 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
     setApplications((prev) => prev.filter((a) => a.collab_id !== c.id));
   };
 
-  const delegateToCooc = (c: Collab, pending: Application[]) => {
-    const room = createCoocChat({
-      collab: {
-        title: c.title,
-        kind: c.kind,
-        desc: c.desc,
-        partner: c.partner,
-        period: c.period,
-      },
-      applicantNames: pending.map((a) => applicantLabel(a)),
-    });
-    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
-  };
-
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-6 text-center">
@@ -332,54 +413,28 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
     <div>
       <ul className="space-y-3">
         {items.map((c) => {
-          const open = expanded.has(c.id);
           const applicants = applications.filter((a) => a.collab_id === c.id);
           const pendingApplicants = applicants.filter((a) => a.status === "pending");
-          const host = collabHostLabel(c);
           return (
-            <li
+            <CollabCard
               key={c.id}
-              id={`collab-${c.id}`}
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
-                toggle(c.id);
+              domId={`collab-${c.id}`}
+              item={{
+                id: c.id,
+                authorNickname: c.authorNickname,
+                authorAvatarUrl: c.authorAvatarUrl,
+                kind: c.kind,
+                title: c.title,
+                description: c.desc,
+                period: formatPeriod(c.period),
+                location: c.location?.trim() || undefined,
+                photos: c.photos,
               }}
-              className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-4 cursor-pointer"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-text-5 flex items-center gap-1.5">
-                    <span className="truncate">{host}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]">
-                      {c.kind}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-lg font-semibold text-text-1 truncate">
-                    {c.title}
-                  </div>
-                  {(() => {
-                    const periodLabel = formatPeriod(c.period);
-                    const loc = c.location?.trim() ?? "";
-                    if (!periodLabel && !loc) return null;
-                    return (
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-6">
-                        {periodLabel && (
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <CalendarClock size={11} className="shrink-0" />
-                            <span className="truncate">{periodLabel}</span>
-                          </span>
-                        )}
-                        {loc && (
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <MapPin size={11} className="shrink-0" />
-                            <span className="truncate">{loc}</span>
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="shrink-0 flex items-start gap-1.5">
+              expanded={expanded.has(c.id)}
+              onToggle={() => toggle(c.id)}
+              onAuthorClick={() => setViewProfileUserId(c.authorId)}
+              rightTop={
+                <div className="flex items-start gap-1.5">
                   <div className="flex flex-col items-end gap-1">
                     {c.status !== "recruiting" && (
                       <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-text-4 border border-black/10 dark:border-white/15">
@@ -433,56 +488,15 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                     )}
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-2 flex justify-end">
-                <button
-                  onClick={() => toggle(c.id)}
-                  aria-expanded={open}
-                  aria-label={open ? "접기" : "자세히"}
-                  className="inline-flex items-center gap-0.5 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]"
-                >
-                  자세히
-                  <ChevronDown
-                    size={12}
-                    className={`transition-transform ${open ? "rotate-180" : ""}`}
-                  />
-                </button>
-              </div>
-
-              {open && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3"
-                >
-                  {c.desc ? (
-                    <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
-                      {c.desc}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-text-6">아직 설명이 비어 있어요.</p>
-                  )}
-
+              }
+              expandedActions={
+                <>
                   <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <UserPlus size={12} className="text-[#4a4d22] dark:text-[#d4d8a8]" />
-                        <h4 className="text-xs font-semibold text-text-1">
-                          참여 요청 {applicants.length}
-                        </h4>
-                      </div>
-                      {pendingApplicants.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPendingDelegate({ collab: c, applicants: pendingApplicants })
-                          }
-                          className="inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full bg-[#999f54]/10 dark:bg-[#999f54]/20 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40 font-semibold hover:bg-[#999f54]/15 dark:hover:bg-[#999f54]/25"
-                        >
-                          <Sparkles size={11} />
-                          COOC에게 맡기기
-                        </button>
-                      )}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <UserPlus size={12} className="text-[#4a4d22] dark:text-[#d4d8a8]" />
+                      <h4 className="text-xs font-semibold text-text-1">
+                        참여 요청 {applicants.length}
+                      </h4>
                     </div>
                     {applicants.length === 0 ? (
                       <p className="text-[11px] text-text-6">아직 참여 요청이 없어요.</p>
@@ -497,7 +511,21 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                                 : "bg-[#999f54]/8 border-[#999f54]/20"
                             }`}
                           >
-                            <div className="flex items-start gap-2">
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewProfileUserId(a.applicant_id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setViewProfileUserId(a.applicant_id);
+                                }
+                              }}
+                              className="inline-flex items-center gap-2 cursor-pointer rounded-full -m-1 p-1 pr-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-colors w-fit max-w-full"
+                            >
                               <span
                                 className={`w-8 h-8 shrink-0 rounded-full text-[#F2F0DC] inline-flex items-center justify-center overflow-hidden ${
                                   a.status === "accepted" ? "bg-emerald-600" : "bg-[#999f54]"
@@ -514,62 +542,28 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                                   <User size={16} strokeWidth={1.75} />
                                 )}
                               </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="text-xs font-semibold text-text-1 truncate">
-                                    {applicantLabel(a)}
-                                  </div>
-                                  {a.status === "accepted" && (
-                                    <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
-                                      <Check size={10} />
-                                      수락됨
-                                    </span>
-                                  )}
-                                </div>
-                                {(a.applicant_affiliation ||
-                                  a.applicant_job_title ||
-                                  a.applicant_region) && (
-                                  <div className="mt-0.5 flex items-baseline gap-1 text-[11px] text-text-5">
-                                    <Briefcase size={11} className="text-[#999f54] shrink-0 self-center" />
-                                    <span className="truncate">
-                                      {[a.applicant_affiliation, a.applicant_job_title, a.applicant_region]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                    </span>
-                                  </div>
-                                )}
-                                {a.applicant_keywords && a.applicant_keywords.length > 0 && (
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {a.applicant_keywords.map((k) => (
-                                      <span
-                                        key={k}
-                                        className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25"
-                                      >
-                                        #{k}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                {a.message && (
-                                  <p className="mt-1.5 text-[11px] text-text-4 whitespace-pre-wrap">{a.message}</p>
-                                )}
-                              </div>
+                              <span className="text-xs font-semibold text-text-1 truncate">
+                                {applicantLabel(a)}
+                              </span>
+                              {a.status === "accepted" && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
+                                  <Check size={10} />
+                                  수락됨
+                                </span>
+                              )}
                             </div>
+                            {a.message && (
+                              <p className="mt-2 text-[11px] text-text-4 whitespace-pre-wrap">
+                                {a.message}
+                              </p>
+                            )}
                             <div className="mt-2 flex gap-2 items-center justify-end flex-wrap">
                               {a.status === "pending" && (
                                 <button
-                                  onClick={() => declineApplication(a.id)}
+                                  onClick={() => setDeclineTarget(a)}
                                   className="inline-flex items-center text-[11px] px-3 py-1.5 rounded-full border border-transparent underline text-text-6 hover:text-text-4 font-semibold"
                                 >
                                   다음 기회에
-                                </button>
-                              )}
-                              {a.status === "accepted" && (
-                                <button
-                                  onClick={() => setRevokeTarget(a)}
-                                  className="inline-flex items-center text-[11px] px-3 py-1.5 rounded-full border border-transparent underline text-text-6 hover:text-red-600 font-semibold"
-                                >
-                                  수락 취소
                                 </button>
                               )}
                               <button
@@ -585,7 +579,7 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                               </button>
                               {a.status === "pending" && (
                                 <button
-                                  onClick={() => acceptApplication(a)}
+                                  onClick={() => setAcceptTarget(a)}
                                   className="inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full border border-transparent bg-[#999f54] text-[#F2F0DC] hover:opacity-90 font-semibold"
                                 >
                                   <Check size={12} />
@@ -609,9 +603,9 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                       이대로 진행하기
                     </button>
                   )}
-                </div>
-              )}
-            </li>
+                </>
+              }
+            />
           );
         })}
       </ul>
@@ -641,48 +635,6 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
             삭제
           </button>
         </div>
-      </Modal>
-
-      <Modal
-        open={!!pendingDelegate}
-        onClose={() => setPendingDelegate(null)}
-        title="COOC에게 맡기기"
-        size="sm"
-      >
-        {pendingDelegate && (
-          <div className="flex flex-col gap-5">
-            <div className="text-sm text-text-3 leading-relaxed space-y-2">
-              <p>
-                <span className="font-semibold text-text-1">{pendingDelegate.collab.title}</span>
-                에 들어온 참여 요청 {pendingDelegate.applicants.length}건을 COOC 에이전시에
-                위임합니다.
-              </p>
-              <p className="text-xs text-text-5">
-                이후 매칭·조율은 COOC 채팅으로 이어져요.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingDelegate(null)}
-                className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const p = pendingDelegate;
-                  setPendingDelegate(null);
-                  delegateToCooc(p.collab, p.applicants);
-                }}
-                className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
-              >
-                맡기기
-              </button>
-            </div>
-          </div>
-        )}
       </Modal>
 
       <Modal
@@ -739,9 +691,6 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
       >
         {chatTarget && (() => {
           const a = chatTarget.app;
-          const metaParts = [a.applicant_affiliation, a.applicant_job_title, a.applicant_region].filter(
-            (v): v is string => !!v,
-          );
           return (
             <div className="flex flex-col gap-5">
               <div className="text-sm text-text-3 leading-relaxed space-y-2">
@@ -749,12 +698,9 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                   <span className="font-semibold text-text-1">{applicantLabel(a)}</span>
                   님과 대화를 시작할까요?
                 </p>
-                <p className="text-xs text-text-5">
-                  아래는 참여자가 공개한 정보예요. 이 내용을 확인하고 대화를 이어가세요.
-                </p>
               </div>
               <div className="rounded-lg p-2.5 border bg-[#999f54]/8 border-[#999f54]/20">
-                <div className="flex items-start gap-2">
+                <div className="flex items-center gap-2">
                   <span className="w-8 h-8 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center overflow-hidden">
                     {a.applicant_avatar_url ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
@@ -767,33 +713,8 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
                       <User size={16} strokeWidth={1.75} />
                     )}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-text-1 truncate">
-                      {applicantLabel(a)}
-                    </div>
-                    {metaParts.length > 0 && (
-                      <div className="mt-0.5 flex items-baseline gap-1 text-[11px] text-text-5">
-                        <Briefcase size={11} className="text-[#999f54] shrink-0 self-center" />
-                        <span className="truncate">{metaParts.join(" · ")}</span>
-                      </div>
-                    )}
-                    {a.applicant_keywords && a.applicant_keywords.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {a.applicant_keywords.map((k) => (
-                          <span
-                            key={k}
-                            className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-[#999f54]/10 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25"
-                          >
-                            #{k}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {a.message && (
-                      <p className="mt-1.5 text-[11px] text-text-4 whitespace-pre-wrap">
-                        {a.message}
-                      </p>
-                    )}
+                  <div className="text-xs font-semibold text-text-1 truncate">
+                    {applicantLabel(a)}
                   </div>
                 </div>
               </div>
@@ -823,41 +744,75 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
       </Modal>
 
       <Modal
-        open={!!revokeTarget}
-        onClose={() => setRevokeTarget(null)}
-        title="수락 취소"
+        open={!!acceptTarget}
+        onClose={() => setAcceptTarget(null)}
+        title="신청 수락"
         size="sm"
       >
-        {revokeTarget && (
+        {acceptTarget && (
           <div className="flex flex-col gap-5">
-            <div className="text-sm text-text-3 leading-relaxed space-y-2">
-              <p>
-                <span className="font-semibold text-text-1">
-                  {applicantLabel(revokeTarget)}
-                </span>
-                의 수락을 취소할까요?
-              </p>
-              <p className="text-xs text-text-5">상대방에게 알림이 갑니다.</p>
-            </div>
+            <p className="text-sm text-text-3 leading-relaxed">
+              수락한 후에는 되돌릴 수 없어요.
+            </p>
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setRevokeTarget(null)}
+                onClick={() => setAcceptTarget(null)}
                 className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
               >
                 취소
               </button>
               <button
                 type="button"
-                onClick={confirmRevoke}
-                className="flex-[2] py-2.5 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600"
+                onClick={() => {
+                  const t = acceptTarget;
+                  setAcceptTarget(null);
+                  if (t) acceptApplication(t);
+                }}
+                className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
               >
-                확인
+                수락
               </button>
             </div>
           </div>
         )}
       </Modal>
+
+      <Modal
+        open={!!declineTarget}
+        onClose={() => setDeclineTarget(null)}
+        title="다음 기회에 응답"
+        size="sm"
+      >
+        {declineTarget && (
+          <div className="flex flex-col gap-5">
+            <p className="text-sm text-text-3 leading-relaxed">
+              이 신청은 사라지고 되돌릴 수 없어요.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeclineTarget(null)}
+                className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmDecline}
+                className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
+              >
+                거절
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ProfileModal
+        userId={viewProfileUserId}
+        onClose={() => setViewProfileUserId(null)}
+      />
     </div>
   );
 }

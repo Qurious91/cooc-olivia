@@ -27,6 +27,8 @@ export type UpdateProfileInput = {
   status: string;
   is_admin: boolean;
   keywords: string[];
+  // 표시 전용. updateProfile에서 DB에 쓰지 않음 (auth.users와 동기화).
+  email: string;
 };
 
 export async function updateProfile(input: UpdateProfileInput) {

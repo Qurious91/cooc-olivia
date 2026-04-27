@@ -2,9 +2,12 @@
 
 import {
   AtSign,
+  BadgeCheck,
   Briefcase,
+  Building2,
   Camera,
   Check,
+  ChevronRight,
   Eye,
   EyeOff,
   Globe,
@@ -14,10 +17,13 @@ import {
   Mail,
   MapPin,
   Medal,
+  Paperclip,
   Pencil,
   Plus,
+  ShieldCheck,
   Sparkles,
   Trash2,
+  Upload,
   User,
   Utensils,
   X,
@@ -415,6 +421,7 @@ function DatedItemContent<T extends { id: string; title: string; body: string }>
   dateFieldLabel,
   renderPreviewDate,
   renderDateEditor,
+  extraAction,
 }: {
   editing: boolean;
   showPreview: boolean;
@@ -429,6 +436,7 @@ function DatedItemContent<T extends { id: string; title: string; body: string }>
     item: T,
     patch: (patch: Partial<T>) => void,
   ) => React.ReactNode;
+  extraAction?: React.ReactNode;
 }) {
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   const preview =
@@ -506,6 +514,7 @@ function DatedItemContent<T extends { id: string; title: string; body: string }>
       <AddItemButton onClick={onAdd} onPointerDown={stop}>
         {label} 추가
       </AddItemButton>
+      {extraAction}
     </div>
   );
 }
@@ -755,14 +764,43 @@ export default function Profile() {
   const avatarMenuRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<{
     name: string | null;
+    nickname: string | null;
     role: string | null;
     avatar_url: string | null;
     affiliation: string | null;
   } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [nicknameInput, setNicknameInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [roleInput, setRoleInput] = useState("");
   const [affiliationInput, setAffiliationInput] = useState("");
+  const [userType, setUserType] = useState<"expert" | "client">("expert");
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [carrier, setCarrier] = useState<string | null>(null);
+  const [verifyName, setVerifyName] = useState("");
+  const [birthdate, setBirthdate] = useState("");
+  const [verifyPhone, setVerifyPhone] = useState("");
+  const [agreeAll, setAgreeAll] = useState(false);
+  const [businessVerified, setBusinessVerified] = useState(false);
+  const [bizModalOpen, setBizModalOpen] = useState(false);
+  const [bizNo, setBizNo] = useState("");
+  const [bizCeo, setBizCeo] = useState("");
+  const [bizStartDt, setBizStartDt] = useState("");
+  const [bizCorpNo, setBizCorpNo] = useState("");
+  const [coocVerified, setCoocVerified] = useState(false);
+  const [coocModalOpen, setCoocModalOpen] = useState(false);
+  const [coocFiles, setCoocFiles] = useState<File[]>([]);
+  const [coocNote, setCoocNote] = useState("");
+  const [nhisModalOpen, setNhisModalOpen] = useState(false);
+  const [nhisProvider, setNhisProvider] = useState<string | null>(null);
+  const [nhisName, setNhisName] = useState("");
+  const [nhisBirth, setNhisBirth] = useState("");
+  const [nhisPhone, setNhisPhone] = useState("");
+  const [nhisAgree, setNhisAgree] = useState(false);
+  const [careerVerifyOpen, setCareerVerifyOpen] = useState(false);
+  const [careerVerifyFiles, setCareerVerifyFiles] = useState<File[]>([]);
+  const [careerVerifyNote, setCareerVerifyNote] = useState("");
   const [keywordDraft, setKeywordDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
@@ -782,16 +820,18 @@ export default function Profile() {
       setUserId(user.id);
       const { data: row } = await supabase
         .from("profiles")
-        .select("name, role, avatar_url, affiliation, job_title, region, keywords")
+        .select("name, nickname, role, avatar_url, affiliation, job_title, region, keywords")
         .eq("id", user.id)
         .single();
       if (row) {
         setProfile({
           name: row.name,
+          nickname: row.nickname,
           role: row.role,
           avatar_url: row.avatar_url,
           affiliation: row.affiliation,
         });
+        if (row.nickname) setNicknameInput(row.nickname);
         if (row.name) setNameInput(row.name);
         if (row.role) setRoleInput(row.role);
         if (row.affiliation) setAffiliationInput(row.affiliation);
@@ -974,6 +1014,7 @@ export default function Profile() {
 
   const isOnboarded =
     profile !== null &&
+    !!profile.nickname &&
     !!profile.name &&
     !!profile.role &&
     !!profile.affiliation;
@@ -982,6 +1023,7 @@ export default function Profile() {
   const handleOnboardingSave = async () => {
     if (
       !userId ||
+      !nicknameInput.trim() ||
       !nameInput.trim() ||
       !roleInput.trim() ||
       !affiliationInput.trim()
@@ -992,6 +1034,7 @@ export default function Profile() {
     const { error } = await supabase
       .from("profiles")
       .update({
+        nickname: nicknameInput.trim(),
         name: nameInput.trim(),
         role: roleInput.trim(),
         affiliation: affiliationInput.trim(),
@@ -1000,6 +1043,7 @@ export default function Profile() {
     setSaving(false);
     if (!error) {
       setProfile((p) => ({
+        nickname: nicknameInput.trim(),
         name: nameInput.trim(),
         role: roleInput.trim(),
         affiliation: affiliationInput.trim(),
@@ -1038,6 +1082,7 @@ export default function Profile() {
 
   const startEdit = () => {
     setOriginalData(structuredClone(data));
+    setNicknameInput(profile?.nickname ?? "");
     setNameInput(profile?.name ?? "");
     setRoleInput(profile?.role ?? "");
     setShowPreview(true);
@@ -1052,6 +1097,7 @@ export default function Profile() {
     }
     if (originalData) setData(originalData);
     setOriginalData(null);
+    setNicknameInput(profile?.nickname ?? "");
     setNameInput(profile?.name ?? "");
     setRoleInput(profile?.role ?? "");
     setKeywordDraft("");
@@ -1074,7 +1120,10 @@ export default function Profile() {
     (s) => s.graduatedYm.length > 0 && s.title.trim().length > 0,
   );
   const menusOk = data.menus.every((m) => m.title.trim().length > 0);
-  const headerOk = nameInput.trim().length > 0 && roleInput.trim().length > 0;
+  const headerOk =
+    nicknameInput.trim().length > 0 &&
+    nameInput.trim().length > 0 &&
+    roleInput.trim().length > 0;
   const canCommit =
     headerOk && currentOk && careerOk && awardsOk && statsOk && menusOk;
 
@@ -1292,11 +1341,13 @@ export default function Profile() {
         .in("kind", removed);
     }
 
+    const trimmedNickname = nicknameInput.trim();
     const trimmedName = nameInput.trim();
     const trimmedRole = roleInput.trim();
     await supabase
       .from("profiles")
       .update({
+        nickname: trimmedNickname,
         name: trimmedName,
         role: trimmedRole,
         affiliation: data.affiliation.trim() || null,
@@ -1309,6 +1360,7 @@ export default function Profile() {
       p
         ? {
             ...p,
+            nickname: trimmedNickname,
             name: trimmedName,
             role: trimmedRole,
             affiliation: data.affiliation.trim(),
@@ -1707,7 +1759,7 @@ export default function Profile() {
                   title={
                     !canCommit
                       ? !headerOk
-                        ? "이름과 역할을 입력해주세요"
+                        ? "닉네임, 이름, 역할을 입력해주세요"
                         : "필수 항목을 입력해주세요"
                       : undefined
                   }
@@ -1734,6 +1786,163 @@ export default function Profile() {
           <section className="mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-5">
             {needsOnboarding ? (
               <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setUserType("expert")}
+                    className={`py-2 rounded-md text-xs font-semibold transition-colors ring-1 ${
+                      userType === "expert"
+                        ? "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] ring-[#999f54]/30"
+                        : "text-text-5 ring-transparent"
+                    }`}
+                  >
+                    F&B 전문가
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserType("client")}
+                    className={`py-2 rounded-md text-xs font-semibold transition-colors ring-1 ${
+                      userType === "client"
+                        ? "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] ring-[#999f54]/30"
+                        : "text-text-5 ring-transparent"
+                    }`}
+                  >
+                    의뢰자
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIdentityModalOpen(true)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-border hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-left"
+                >
+                  <span className="w-9 h-9 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
+                    <ShieldCheck size={18} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-text-6">
+                        STEP 1
+                      </span>
+                      <span className="text-sm font-medium text-text-2">
+                        {userType === "expert" ? "실명인증" : "담당자 실명인증"}
+                      </span>
+                      <span className="text-[10px] font-semibold text-[#c0392b]">
+                        *필수
+                      </span>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                        제작중
+                      </span>
+                    </span>
+                    <span className="block mt-0.5 text-[11px] text-text-5">
+                      {identityVerified
+                        ? "본인 확인 완료"
+                        : "휴대폰으로 본인 확인을 진행해요"}
+                    </span>
+                  </span>
+                  {identityVerified ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4a4d22] dark:text-[#d4d8a8]">
+                      <BadgeCheck size={14} />
+                      완료
+                    </span>
+                  ) : (
+                    <ChevronRight size={16} className="text-text-6" />
+                  )}
+                </button>
+
+                {userType === "client" && (
+                  <button
+                    type="button"
+                    onClick={() => setBizModalOpen(true)}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-border hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-left"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
+                      <Building2 size={18} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-text-6">
+                          STEP 2
+                        </span>
+                        <span className="text-sm font-medium text-text-2">
+                          기업인증
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#c0392b]">
+                          *필수
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                          제작중
+                        </span>
+                      </span>
+                      <span className="block mt-0.5 text-[11px] text-text-5">
+                        {businessVerified
+                          ? "사업자 인증 완료"
+                          : "사업자 등록번호로 기업을 인증해요"}
+                      </span>
+                    </span>
+                    {businessVerified ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4a4d22] dark:text-[#d4d8a8]">
+                        <BadgeCheck size={14} />
+                        완료
+                      </span>
+                    ) : (
+                      <ChevronRight size={16} className="text-text-6" />
+                    )}
+                  </button>
+                )}
+
+                {userType === "client" && (
+                  <button
+                    type="button"
+                    onClick={() => setCoocModalOpen(true)}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-border hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-left"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
+                      <Paperclip size={18} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-text-6">
+                          STEP 3
+                        </span>
+                        <span className="text-sm font-medium text-text-2">
+                          COOC에 인증하기
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#c0392b]">
+                          *필수
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                          제작중
+                        </span>
+                      </span>
+                      <span className="block mt-0.5 text-[11px] text-text-5">
+                        {coocVerified
+                          ? `서류 ${coocFiles.length}건 제출 완료 — 운영팀 검토 대기`
+                          : "관련 서류를 첨부해 운영팀의 검토를 받아요"}
+                      </span>
+                    </span>
+                    {coocVerified ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4a4d22] dark:text-[#d4d8a8]">
+                        <BadgeCheck size={14} />
+                        제출
+                      </span>
+                    ) : (
+                      <ChevronRight size={16} className="text-text-6" />
+                    )}
+                  </button>
+                )}
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-medium text-text-4 mb-1.5">
+                    닉네임
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    placeholder="활동에 사용할 닉네임을 입력해주세요"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-text-4 mb-1.5">
                     이름
@@ -1794,6 +2003,7 @@ export default function Profile() {
                   type="button"
                   onClick={handleOnboardingSave}
                   disabled={
+                    !nicknameInput.trim() ||
                     !nameInput.trim() ||
                     !roleInput.trim() ||
                     !affiliationInput.trim() ||
@@ -1871,19 +2081,45 @@ export default function Profile() {
                   </div>
                   <div className="min-w-0 flex-1">
                     {!editing && (
-                      <div className="flex items-baseline gap-2 min-w-0">
-                        <h1 className="text-lg font-bold text-text-1 truncate leading-tight">
-                          {profile.name ?? ""}
-                        </h1>
-                        {profile.role && (
-                          <span className="text-xs text-text-5 truncate">
-                            {ROLE_LABELS[profile.role] ?? profile.role}
-                          </span>
+                      <div className="min-w-0 space-y-0.5">
+                        {profile.nickname && (
+                          <h1 className="text-lg font-bold text-text-1 truncate leading-tight">
+                            {profile.nickname}
+                          </h1>
                         )}
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          {profile.name && (
+                            <span className="text-sm text-text-3 truncate">
+                              {profile.name}
+                            </span>
+                          )}
+                          {profile.role && (
+                            <span className="text-xs text-text-5 truncate">
+                              {ROLE_LABELS[profile.role] ?? profile.role}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                     {editing ? (
                       <div className="space-y-2 text-sm">
+                        <LabeledRow
+                          label={
+                            <>
+                              닉네임 <span className="text-red-500">*</span>
+                            </>
+                          }
+                          labelWidth="w-12"
+                          labelTextSize="text-[11px]"
+                        >
+                          <input
+                            type="text"
+                            value={nicknameInput}
+                            onChange={(e) => setNicknameInput(e.target.value)}
+                            placeholder="활동에 사용할 닉네임"
+                            className={`${INPUT_BASE} flex-1 min-w-0 text-text-1 text-sm`}
+                          />
+                        </LabeledRow>
                         <LabeledRow
                           label={
                             <>
@@ -2152,6 +2388,32 @@ export default function Profile() {
                     </div>
                   </>
                 )}
+                extraAction={
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setNhisModalOpen(true)}
+                      className="w-full mt-2 py-2 text-xs text-text-5 border border-dashed border-[#0c8a86]/40 rounded-lg hover:border-[#0c8a86] hover:text-[#0c8a86] inline-flex items-center justify-center gap-1.5"
+                    >
+                      <ShieldCheck size={12} />
+                      4대보험 가입내역으로 자동 추가
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#0c8a86]/15 text-[#0c8a86] border border-[#0c8a86]/25">
+                        제작중
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCareerVerifyOpen(true)}
+                      className="w-full mt-2 py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] inline-flex items-center justify-center gap-1.5"
+                    >
+                      <Paperclip size={12} />
+                      파일 첨부로 COOC에 인증요청
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                        제작중
+                      </span>
+                    </button>
+                  </>
+                }
               />
             ) : type.key === "awards" ? (
               <DatedItemContent<Award>
@@ -2379,6 +2641,735 @@ export default function Profile() {
           onCancel={() => setPendingAvatarFile(null)}
           onConfirm={handleAvatarConfirm}
         />
+      )}
+
+      {identityModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="PASS 본인확인"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setIdentityModalOpen(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
+            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#e5384b] text-white text-[10px] font-bold tracking-wider">
+                PASS
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-1">
+                  PASS 본인확인
+                </p>
+                <p className="text-[11px] text-text-5">
+                  통신사 인증으로 빠르게 본인을 확인해요
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIdentityModalOpen(false)}
+                aria-label="닫기"
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              <div>
+                <p className="text-xs font-medium text-text-4 mb-1.5">통신사</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["SKT", "KT", "LG U+", "알뜰폰"].map((c) => {
+                    const active = carrier === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setCarrier(c)}
+                        className={`py-2 rounded-lg text-xs font-medium border ${
+                          active
+                            ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                            : "bg-surface text-text-4 border-border"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  이름
+                </label>
+                <input
+                  type="text"
+                  value={verifyName}
+                  onChange={(e) => setVerifyName(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  placeholder="홍길동"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  생년월일
+                </label>
+                <input
+                  type="text"
+                  value={birthdate}
+                  onChange={(e) => setBirthdate(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
+                  placeholder="YYYYMMDD"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  휴대폰 번호
+                </label>
+                <input
+                  type="text"
+                  value={verifyPhone}
+                  onChange={(e) => setVerifyPhone(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  placeholder="010-0000-0000"
+                />
+              </div>
+
+              <label className="flex items-start gap-2 text-[11px] text-text-4 leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={agreeAll}
+                  onChange={(e) => setAgreeAll(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-[#999f54]"
+                />
+                <span>
+                  전체 약관에 동의합니다 (개인정보 수집·이용, 고유식별정보 처리,
+                  통신사 본인확인 서비스 이용약관)
+                </span>
+              </label>
+            </div>
+
+            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
+              <button
+                type="button"
+                disabled
+                title="준비중"
+                className="w-full py-3 rounded-xl bg-[#999f54] text-[#F2F0DC] text-sm font-semibold opacity-40 cursor-not-allowed"
+              >
+                PASS로 인증요청
+              </button>
+              <button
+                type="button"
+                onClick={() => setIdentityModalOpen(false)}
+                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bizModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="사업자등록 진위확인"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setBizModalOpen(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
+            <div className="flex items-start gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#1d4f91] text-white text-[10px] font-bold tracking-wider">
+                NTS
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-1">
+                  사업자등록 진위확인
+                </p>
+                <p className="text-[11px] text-text-5 mt-0.5">
+                  국세청 사업자등록정보로 사업자를 조회합니다
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBizModalOpen(false)}
+                aria-label="닫기"
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
+                  사업자등록번호
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={bizNo}
+                  onChange={(e) => setBizNo(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
+                  placeholder="000-00-00000"
+                />
+                <p className="mt-1 text-[10px] text-text-6">하이픈 제외 10자리</p>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
+                  대표자 성명
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={bizCeo}
+                  onChange={(e) => setBizCeo(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
+                  placeholder="홍길동"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
+                  개업일자
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={bizStartDt}
+                  onChange={(e) => setBizStartDt(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
+                  placeholder="YYYYMMDD"
+                />
+              </div>
+
+              <div className="pt-1">
+                <p className="text-[11px] font-semibold text-text-5 mb-2">
+                  추가 정보 (선택)
+                </p>
+                <div>
+                  <label className="block text-[11px] font-medium text-text-5 mb-1">
+                    법인등록번호
+                  </label>
+                  <input
+                    type="text"
+                    value={bizCorpNo}
+                    onChange={(e) => setBizCorpNo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
+                    placeholder="000000-0000000"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-text-5 leading-relaxed">
+                입력하신 정보는 국세청 사업자등록 진위확인 API로 조회되며, 결과 값(상호·과세유형·영업상태)이 함께 저장됩니다.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
+              <button
+                type="button"
+                disabled
+                title="준비중"
+                className="w-full py-3 rounded-xl bg-[#1d4f91] text-white text-sm font-semibold opacity-40 cursor-not-allowed"
+              >
+                사업자 조회
+              </button>
+              <button
+                type="button"
+                onClick={() => setBizModalOpen(false)}
+                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {coocModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="COOC 인증"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setCoocModalOpen(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
+            <div className="flex items-start gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#999f54] text-[#F2F0DC] text-[10px] font-bold tracking-wider">
+                COOC
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-1">COOC 인증</p>
+                <p className="text-[11px] text-text-5 mt-0.5">
+                  관련 서류를 제출하면 운영팀이 직접 검토합니다
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCoocModalOpen(false)}
+                aria-label="닫기"
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-2">
+                  서류 첨부
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <label className="flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-lg border-2 border-dashed border-black/15 dark:border-white/15 cursor-pointer hover:border-[#999f54] hover:bg-[#999f54]/5 text-center">
+                  <Upload size={20} className="text-text-5" />
+                  <span className="text-xs font-medium text-text-3">
+                    클릭해서 파일 선택
+                  </span>
+                  <span className="text-[10px] text-text-6">
+                    사업자등록증·재직증명서·계약서 등 (PDF, JPG, PNG)
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                    onChange={(e) => {
+                      const picked = e.target.files
+                        ? Array.from(e.target.files)
+                        : [];
+                      if (picked.length === 0) return;
+                      setCoocFiles((prev) => [...prev, ...picked]);
+                      e.target.value = "";
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+
+              {coocFiles.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-text-5 mb-2">
+                    첨부된 파일 ({coocFiles.length})
+                  </p>
+                  <ul className="rounded-lg border border-border divide-y divide-black/5 dark:divide-white/10 overflow-hidden">
+                    {coocFiles.map((f, idx) => (
+                      <li
+                        key={`${f.name}-${idx}`}
+                        className="flex items-center gap-2 px-3 py-2"
+                      >
+                        <Paperclip size={14} className="text-text-5 shrink-0" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[12px] text-text-2 truncate">
+                            {f.name}
+                          </span>
+                          <span className="block text-[10px] text-text-6">
+                            {(f.size / 1024).toFixed(1)} KB
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCoocFiles((prev) =>
+                              prev.filter((_, i) => i !== idx),
+                            )
+                          }
+                          aria-label="삭제"
+                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-5 hover:text-[#c0392b]"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  참고 메모 (선택)
+                </label>
+                <textarea
+                  value={coocNote}
+                  onChange={(e) => setCoocNote(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent resize-none"
+                  placeholder="운영팀이 알아두면 좋은 사항이 있다면 적어주세요"
+                />
+              </div>
+
+              <p className="text-[11px] text-text-5 leading-relaxed">
+                제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
+              <button
+                type="button"
+                disabled
+                title="준비중"
+                className="w-full py-3 rounded-xl bg-[#999f54] text-[#F2F0DC] text-sm font-semibold opacity-40 cursor-not-allowed"
+              >
+                제출하기
+              </button>
+              <button
+                type="button"
+                onClick={() => setCoocModalOpen(false)}
+                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {nhisModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="4대보험 가입내역 조회"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setNhisModalOpen(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
+            <div className="flex items-start gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#0c8a86] text-white text-[10px] font-bold tracking-wider">
+                NHIS
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-1">
+                  4대보험 가입내역 조회
+                </p>
+                <p className="text-[11px] text-text-5 mt-0.5">
+                  간편인증으로 본인의 가입 이력을 가져와 경력에 자동 추가해요
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNhisModalOpen(false)}
+                aria-label="닫기"
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              <div className="rounded-lg border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-3 py-2.5">
+                <p className="text-[11px] text-text-4 leading-relaxed">
+                  국민건강보험공단의 본인 4대보험 가입내역을 조회해
+                  <span className="text-text-2 font-medium"> 회사명·입사일·퇴사일</span>을
+                  경력 항목에 자동으로 추가합니다. 조회 결과 확인 후 저장 여부를 직접
+                  선택할 수 있어요.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-text-4 mb-2">
+                  간편인증 선택{" "}
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    "카카오",
+                    "KB모바일",
+                    "페이코",
+                    "네이버",
+                    "통신사 PASS",
+                    "토스",
+                  ].map((p) => {
+                    const active = nhisProvider === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setNhisProvider(p)}
+                        className={`py-2 rounded-lg text-[11px] font-medium border ${
+                          active
+                            ? "bg-[#0c8a86] text-white border-[#0c8a86]"
+                            : "bg-surface text-text-4 border-border"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
+                  이름
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={nhisName}
+                  onChange={(e) => setNhisName(e.target.value)}
+                  placeholder="홍길동"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#0c8a86] bg-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
+                  생년월일
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={nhisBirth}
+                  onChange={(e) => setNhisBirth(e.target.value)}
+                  placeholder="YYYYMMDD"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#0c8a86] bg-transparent tracking-wider"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
+                  휴대폰 번호
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={nhisPhone}
+                  onChange={(e) => setNhisPhone(e.target.value)}
+                  placeholder="010-0000-0000"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#0c8a86] bg-transparent"
+                />
+              </div>
+
+              <label className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-[#0c8a86]/[0.06] border border-[#0c8a86]/20 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={nhisAgree}
+                  onChange={(e) => setNhisAgree(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-[#0c8a86]"
+                />
+                <span className="flex-1 min-w-0 text-[11px] text-text-3 leading-relaxed">
+                  <span className="block font-semibold text-text-2">
+                    본인확인 및 가입내역 조회 동의
+                  </span>
+                  <span className="block mt-0.5 text-text-5">
+                    본인인증(이름·생년월일·휴대폰번호) · NHIS 4대보험 가입내역
+                    수집·이용 · 간편인증 사업자 약관에 동의합니다.
+                  </span>
+                </span>
+              </label>
+
+              <p className="text-[10px] text-text-6 leading-relaxed">
+                선택한 간편인증 앱으로 푸시 알림이 전송됩니다. 인증 후 30초 안에 앱에서
+                동의를 완료해주세요.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
+              <button
+                type="button"
+                disabled
+                title="준비중 — Codef NHIS API 연동 예정"
+                className="w-full py-3 rounded-xl bg-[#0c8a86] text-white text-sm font-semibold opacity-40 cursor-not-allowed"
+              >
+                인증 요청
+              </button>
+              <button
+                type="button"
+                onClick={() => setNhisModalOpen(false)}
+                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {careerVerifyOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="경력 인증 — COOC 운영팀 검토"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setCareerVerifyOpen(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
+            <div className="flex items-start gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#999f54] text-[#F2F0DC] text-[10px] font-bold tracking-wider">
+                COOC
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-1">
+                  경력 인증 요청
+                </p>
+                <p className="text-[11px] text-text-5 mt-0.5">
+                  재직·경력 증빙 서류를 제출하면 운영팀이 검토 후 반영해요
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCareerVerifyOpen(false)}
+                aria-label="닫기"
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-2">
+                  서류 첨부
+                  <span className="text-[10px] font-semibold text-[#c0392b]">
+                    *필수
+                  </span>
+                </label>
+                <label className="flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-lg border-2 border-dashed border-black/15 dark:border-white/15 cursor-pointer hover:border-[#999f54] hover:bg-[#999f54]/5 text-center">
+                  <Upload size={20} className="text-text-5" />
+                  <span className="text-xs font-medium text-text-3">
+                    클릭해서 파일 선택
+                  </span>
+                  <span className="text-[10px] text-text-6">
+                    재직증명서·경력증명서·계약서 등 (PDF, JPG, PNG)
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                    onChange={(e) => {
+                      const picked = e.target.files
+                        ? Array.from(e.target.files)
+                        : [];
+                      if (picked.length === 0) return;
+                      setCareerVerifyFiles((prev) => [...prev, ...picked]);
+                      e.target.value = "";
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+
+              {careerVerifyFiles.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-text-5 mb-2">
+                    첨부된 파일 ({careerVerifyFiles.length})
+                  </p>
+                  <ul className="rounded-lg border border-border divide-y divide-black/5 dark:divide-white/10 overflow-hidden">
+                    {careerVerifyFiles.map((f, idx) => (
+                      <li
+                        key={`${f.name}-${idx}`}
+                        className="flex items-center gap-2 px-3 py-2"
+                      >
+                        <Paperclip size={14} className="text-text-5 shrink-0" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[12px] text-text-2 truncate">
+                            {f.name}
+                          </span>
+                          <span className="block text-[10px] text-text-6">
+                            {(f.size / 1024).toFixed(1)} KB
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCareerVerifyFiles((prev) =>
+                              prev.filter((_, i) => i !== idx),
+                            )
+                          }
+                          aria-label="삭제"
+                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-5 hover:text-[#c0392b]"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  참고 메모 (선택)
+                </label>
+                <textarea
+                  value={careerVerifyNote}
+                  onChange={(e) => setCareerVerifyNote(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent resize-none"
+                  placeholder="어떤 경력에 대한 증빙인지, 회사명·기간 등을 알려주세요"
+                />
+              </div>
+
+              <p className="text-[11px] text-text-5 leading-relaxed">
+                제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다.
+                승인되면 해당 경력에 인증 뱃지가 표시됩니다.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
+              <button
+                type="button"
+                disabled
+                title="준비중"
+                className="w-full py-3 rounded-xl bg-[#999f54] text-[#F2F0DC] text-sm font-semibold opacity-40 cursor-not-allowed"
+              >
+                인증 요청
+              </button>
+              <button
+                type="button"
+                onClick={() => setCareerVerifyOpen(false)}
+                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

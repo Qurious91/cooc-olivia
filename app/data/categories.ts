@@ -2,7 +2,7 @@ import {
   ChefHat, UtensilsCrossed, Coffee, Wine, Cake,
   Pizza, Salad, Soup, Beef, IceCream,
   Fish, Apple, Carrot, Wheat, Egg, Croissant,
-  UserPlus, FlaskConical, Store, Handshake,
+  UserPlus, Store, Handshake,
   Factory, Building2, ShoppingBag, GlassWater,
   Package, Microwave, Leaf, Sprout, Bike, Utensils,
   Rocket, Globe, Truck, Megaphone,
@@ -16,7 +16,6 @@ export type Category = {
 
 export const HOME_CATEGORIES: Category[] = [
   { Icon: UserPlus, label: "게스트 초청" },
-  { Icon: FlaskConical, label: "메뉴 테스트" },
   { Icon: ChefHat, label: "메뉴 개발" },
   { Icon: Store, label: "팝업 행사" },
   { Icon: Handshake, label: "컨설팅" },

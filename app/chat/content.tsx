@@ -5,61 +5,155 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  type ChatMessage,
-  type ChatRoom,
-  appendMessage,
-  getChat,
-  makeMessageId,
+  type ChatMessageRow,
+  loadChatMessages,
+  markChatRead,
+  sendChatMessage,
 } from "../data/chats";
+import { createClient } from "@/lib/supabase/client";
 
-function nowTime(t: number) {
-  return new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+type RoomMeta = {
+  id: string;
+  collabId: string;
+  collabTitle: string;
+  authorId: string;
+  applicantId: string;
+  otherUserId: string;
+  otherNickname: string;
+  otherAvatarUrl: string | null;
+};
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function ChatContent() {
   const params = useSearchParams();
-  const id = params.get("id");
+  const roomId = params.get("id");
 
-  const [room, setRoom] = useState<ChatRoom | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [room, setRoom] = useState<RoomMeta | null>(null);
+  const [messages, setMessages] = useState<ChatMessageRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!id) return;
-    setRoom(getChat(id));
-  }, [id]);
+    if (!roomId) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        if (!cancelled) setLoaded(true);
+        return;
+      }
+      if (cancelled) return;
+      setUserId(user.id);
 
+      const { data: r } = await supabase
+        .from("chat_rooms")
+        .select(
+          "id, collab_id, applicant_id, " +
+            "collabs!chat_rooms_collab_id_fkey(id, title, author_id, " +
+            "profiles!collabs_author_id_fkey(id, nickname, name, avatar_url)" +
+            "), " +
+            "applicant:profiles!chat_rooms_applicant_id_fkey(id, nickname, name, avatar_url)",
+        )
+        .eq("id", roomId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!r) {
+        setLoaded(true);
+        return;
+      }
+      const data = r as any;
+      const collab = data.collabs;
+      const isAuthor = collab?.author_id === user.id;
+      const other = isAuthor ? data.applicant : collab?.profiles;
+      setRoom({
+        id: data.id,
+        collabId: collab?.id ?? data.collab_id,
+        collabTitle: collab?.title ?? "",
+        authorId: collab?.author_id ?? "",
+        applicantId: data.applicant_id,
+        otherUserId: other?.id ?? "",
+        otherNickname:
+          other?.nickname?.trim() || other?.name?.trim() || "익명",
+        otherAvatarUrl: other?.avatar_url ?? null,
+      });
+      const msgs = await loadChatMessages(data.id);
+      if (cancelled) return;
+      setMessages(msgs);
+      setLoaded(true);
+      void markChatRead(data.id, user.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
+
+  // Realtime: 새 메시지 도착 시 리스트 갱신
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [room]);
+    if (!roomId || !userId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`chat-room:${roomId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as ChatMessageRow;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          void markChatRead(roomId, userId);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId, userId]);
 
-  const scrollToBottom = () => {
+  // 메시지 추가될 때 스크롤
+  useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  };
+  }, [messages]);
 
-  const onInputFocus = () => {
-    setTimeout(scrollToBottom, 300);
-  };
-
-  const send = () => {
-    if (!room) return;
+  const send = async () => {
+    if (!room || !userId) return;
     const text = draft.trim();
-    if (!text) return;
-    const msg: ChatMessage = {
-      id: makeMessageId(),
-      from: "me",
-      text,
-      time: Date.now(),
-    };
-    appendMessage(room.id, msg);
-    setRoom({ ...room, messages: [...room.messages, msg] });
+    if (!text || sending) return;
+    setSending(true);
     setDraft("");
+    const sent = await sendChatMessage(room.id, userId, text);
+    setSending(false);
+    if (sent) {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === sent.id)) return prev;
+        return [...prev, sent];
+      });
+    } else {
+      // 실패 시 입력 복원
+      setDraft(text);
+    }
   };
 
-  if (!id || !room) {
+  if (!roomId || (loaded && !room)) {
     return (
       <div className="flex flex-col h-[100dvh] bg-surface">
         <main className="flex-1 flex items-center justify-center px-6 text-center">
@@ -87,14 +181,27 @@ export default function ChatContent() {
         >
           <ArrowLeft size={20} />
         </Link>
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-9 h-9 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center">
-            <User size={18} strokeWidth={1.75} />
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="w-9 h-9 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center overflow-hidden">
+            {room?.otherAvatarUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={room.otherAvatarUrl}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User size={18} strokeWidth={1.75} />
+            )}
           </span>
-          <div className="min-w-0 flex items-baseline gap-2">
-            <div className="text-base font-semibold text-text-1 truncate">{room.withName}</div>
-            {room.withRole && (
-              <div className="text-xs text-text-5 truncate">{room.withRole}</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-semibold text-text-1 truncate">
+              {room?.otherNickname ?? ""}
+            </div>
+            {room?.collabTitle && (
+              <div className="text-[11px] text-text-5 truncate">
+                {room.collabTitle}
+              </div>
             )}
           </div>
         </div>
@@ -104,25 +211,28 @@ export default function ChatContent() {
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-xl w-full mx-auto"
       >
-        {room.messages.map((m) => {
-          if (m.from === "system") {
-            return (
-              <div key={m.id} className="text-center">
-                <span className="inline-block text-[11px] px-2.5 py-1 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8]">
-                  {m.text}
-                </span>
-              </div>
-            );
-          }
-          const mine = m.from === "me";
+        {!loaded && (
+          <p className="text-xs text-text-5 text-center py-4">
+            대화 불러오는 중...
+          </p>
+        )}
+        {loaded && messages.length === 0 && (
+          <p className="text-xs text-text-5 text-center py-8">
+            아직 주고받은 메시지가 없어요. 먼저 인사를 건네보세요.
+          </p>
+        )}
+        {messages.map((m) => {
+          const mine = m.sender_id === userId;
           return (
             <div
               key={m.id}
               className={`flex ${mine ? "justify-end" : "justify-start"}`}
             >
-              <div className={`max-w-[78%] ${mine ? "text-right" : "text-left"}`}>
+              <div
+                className={`max-w-[78%] ${mine ? "text-right" : "text-left"}`}
+              >
                 <div
-                  className={`inline-block px-3 py-2 rounded-2xl text-base ${
+                  className={`inline-block px-3 py-2 rounded-2xl text-base whitespace-pre-wrap break-words ${
                     mine
                       ? "bg-[#999f54] text-[#F2F0DC] rounded-br-sm"
                       : "bg-black/5 dark:bg-white/5 text-text-1 rounded-bl-sm"
@@ -130,7 +240,9 @@ export default function ChatContent() {
                 >
                   {m.text}
                 </div>
-                <div className="text-[10px] text-text-6 mt-1">{nowTime(m.time)}</div>
+                <div className="text-[10px] text-text-6 mt-1">
+                  {fmtTime(m.created_at)}
+                </div>
               </div>
             </div>
           );
@@ -147,14 +259,13 @@ export default function ChatContent() {
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onFocus={onInputFocus}
           placeholder="메시지 입력"
           className="flex-1 px-3 py-2 rounded-full bg-black/5 dark:bg-white/5 text-base text-text-1 placeholder:text-text-6 focus:outline-none"
         />
         <button
           type="submit"
           aria-label="전송"
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
           className="p-2 rounded-full bg-[#999f54] text-[#F2F0DC] disabled:opacity-40"
         >
           <Send size={16} />

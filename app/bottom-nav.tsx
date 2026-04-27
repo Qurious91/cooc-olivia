@@ -1,27 +1,18 @@
 "use client";
 
-import { Home as HomeIcon, Search, Plus, MessageCircle, Briefcase, X } from "lucide-react";
+import { Home as HomeIcon, Archive, Plus, MessageCircle, Briefcase, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createCoocRequestChat } from "./data/chats";
 import { PROJECT_TYPES } from "./data/project-types";
 
 export default function BottomNav() {
-  const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
-
-  const requestCooc = () => {
-    const room = createCoocRequestChat();
-    setCreateOpen(false);
-    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
-  };
 
   return (
     <>
       <nav className="min-[1100px]:hidden fixed bottom-0 inset-x-0 h-16 bg-background border-t border-border flex items-center justify-around text-text-6 z-30">
         <Link href="/home" aria-label="Home" className="p-2"><HomeIcon size={24} /></Link>
-        <Link href="/search" aria-label="Search" className="p-2"><Search size={24} /></Link>
+        <Link href="/archive" aria-label="Archive" className="p-2"><Archive size={24} /></Link>
         <button aria-label="Create" className="p-2" onClick={() => setCreateOpen(true)}>
           <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black text-white">
             <Plus size={22} />
@@ -71,11 +62,16 @@ export default function BottomNav() {
                     </Link>
                   );
                 }
-                if (title === "COOC에 요청하기") {
+                if (title === "찾고 싶어요") {
                   return (
-                    <button key={title} onClick={requestCooc} className={baseClass}>
+                    <Link
+                      key={title}
+                      href="/explore"
+                      onClick={() => setCreateOpen(false)}
+                      className={baseClass}
+                    >
                       {content}
-                    </button>
+                    </Link>
                   );
                 }
                 return (

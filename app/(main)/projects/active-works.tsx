@@ -1,14 +1,22 @@
 "use client";
 
-import { CalendarClock, CheckCircle2, ChevronDown, MapPin } from "lucide-react";
+import { CheckCircle2, User, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Modal from "../../modal";
+import CollabCard from "../../_components/collab-card";
+import ProfileModal from "../../_components/profile-modal";
 import { formatPeriod, periodFromColumns } from "../../period-picker";
 import { type CollabKind } from "../../data/collabs";
 import { createClient } from "@/lib/supabase/client";
 
 type Role = "host" | "member";
+
+type Participant = {
+  id: string;
+  nickname: string;
+  avatarUrl: string | null;
+};
 
 type WorkItem = {
   id: string;
@@ -16,9 +24,13 @@ type WorkItem = {
   title: string;
   desc: string;
   role: Role;
-  partner: string;
-  period: string | null;
+  authorId: string;
+  authorNickname: string;
+  authorAvatarUrl: string | null;
+  period: string;
   location: string;
+  photos: string[];
+  participants: Participant[];
 };
 
 export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void }) {
@@ -26,6 +38,7 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [completeTarget, setCompleteTarget] = useState<WorkItem | null>(null);
+  const [viewProfileUserId, setViewProfileUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -38,20 +51,22 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
         return;
       }
 
+      const collabSelect =
+        "id, title, description, period_start, period_end, period_start_time, period_end_time, location, " +
+        "collab_kinds(label), " +
+        "profiles!collabs_author_id_fkey(id, name, nickname, avatar_url), " +
+        "collab_photos(image_url, position)";
+
       const [hostRes, memberRes] = await Promise.all([
         supabase
           .from("collabs")
-          .select(
-            "id, kind, author, title, description, period_start, period_end, period_start_time, period_end_time, location, created_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation)",
-          )
+          .select(collabSelect)
           .eq("author_id", user.id)
           .eq("status", "in_progress")
           .order("updated_at", { ascending: false }),
         supabase
           .from("collab_applications")
-          .select(
-            "id, collabs!inner(id, author, title, description, period_start, period_end, period_start_time, period_end_time, location, status, updated_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation))",
-          )
+          .select(`id, collabs!inner(${collabSelect}, status)`)
           .eq("applicant_id", user.id)
           .eq("status", "accepted")
           .eq("collabs.status", "in_progress"),
@@ -76,63 +91,48 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
         );
       }
 
-      const mapHost = (r: any): WorkItem => {
-        const name = r.profiles?.name?.trim() ?? "";
-        const aff = r.profiles?.affiliation?.trim() ?? "";
-        const partner =
-          r.author === "소속"
-            ? aff || name || "익명"
-            : r.author === "둘 다"
-            ? [aff, name].filter(Boolean).join(" · ") || "익명"
-            : name || "익명";
-        return {
-          id: r.id,
-          kind: (r.collab_kinds?.label ?? "") as CollabKind,
-          title: r.title,
-          desc: r.description,
-          role: "host",
-          partner,
-          period: periodFromColumns({
-            period_start: r.period_start,
-            period_end: r.period_end,
-            period_start_time: r.period_start_time,
-            period_end_time: r.period_end_time,
-          }),
-          location: r.location ?? "",
-        };
-      };
-
-      const mapMember = (row: any): WorkItem | null => {
-        const c = row.collabs;
-        if (!c) return null;
-        const name = c.profiles?.name?.trim() ?? "";
-        const aff = c.profiles?.affiliation?.trim() ?? "";
-        const partner =
-          c.author === "소속"
-            ? aff || name || "익명"
-            : c.author === "둘 다"
-            ? [aff, name].filter(Boolean).join(" · ") || "익명"
-            : name || "익명";
+      const buildItem = (c: any, role: Role): WorkItem => {
+        const p = c.profiles ?? null;
+        const nickname = p?.nickname?.trim() ?? "";
+        const name = p?.name?.trim() ?? "";
+        const photoRows = (c.collab_photos ?? []) as Array<{
+          image_url: string;
+          position: number;
+        }>;
+        const photos = photoRows
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((x) => x.image_url);
         return {
           id: c.id,
           kind: (c.collab_kinds?.label ?? "") as CollabKind,
           title: c.title,
-          desc: c.description,
-          role: "member",
-          partner,
-          period: periodFromColumns({
-            period_start: c.period_start,
-            period_end: c.period_end,
-            period_start_time: c.period_start_time,
-            period_end_time: c.period_end_time,
-          }),
+          desc: c.description ?? "",
+          role,
+          authorId: p?.id ?? "",
+          authorNickname: nickname || name || "익명",
+          authorAvatarUrl: p?.avatar_url ?? null,
+          period: formatPeriod(
+            periodFromColumns({
+              period_start: c.period_start,
+              period_end: c.period_end,
+              period_start_time: c.period_start_time,
+              period_end_time: c.period_end_time,
+            }),
+          ),
           location: c.location ?? "",
+          photos,
+          participants: [],
         };
       };
 
-      const hostItems = (hostRes.data ?? []).map(mapHost);
+      const hostItems = (hostRes.data ?? []).map((r: any) => buildItem(r, "host"));
       const memberItems = (memberRes.data ?? [])
-        .map(mapMember)
+        .map((r: any): WorkItem | null => {
+          const c = r.collabs;
+          if (!c) return null;
+          return buildItem(c, "member");
+        })
         .filter((x): x is WorkItem => x !== null);
 
       const seen = new Set<string>();
@@ -142,6 +142,38 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
         seen.add(it.id);
         merged.push(it);
       }
+
+      // accepted된 참여자 프로필을 collab별로 묶어서 attach
+      if (merged.length > 0) {
+        const ids = merged.map((m) => m.id);
+        const { data: parts } = await supabase
+          .from("collab_applications")
+          .select(
+            "collab_id, profiles!collab_applications_applicant_id_fkey(id, nickname, name, avatar_url)",
+          )
+          .in("collab_id", ids)
+          .eq("status", "accepted");
+        if (parts) {
+          const byCollab = new Map<string, Participant[]>();
+          for (const r of parts as any[]) {
+            const p = r.profiles;
+            if (!p) continue;
+            const nickname =
+              p.nickname?.trim() || p.name?.trim() || "익명";
+            const list = byCollab.get(r.collab_id) ?? [];
+            list.push({
+              id: p.id,
+              nickname,
+              avatarUrl: p.avatar_url ?? null,
+            });
+            byCollab.set(r.collab_id, list);
+          }
+          for (const m of merged) {
+            m.participants = byCollab.get(m.id) ?? [];
+          }
+        }
+      }
+
       setItems(merged);
       setLoaded(true);
     })();
@@ -196,50 +228,29 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
   return (
     <>
       <ul className="space-y-3">
-        {items.map((w) => {
-        const open = expanded.has(w.id);
-        const periodLabel = formatPeriod(w.period);
-        return (
-          <li
+        {items.map((w) => (
+          <CollabCard
             key={w.id}
-            onClick={(e) => {
-              if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
-              toggleExpand(w.id);
+            item={{
+              id: w.id,
+              authorId: w.authorId,
+              authorNickname: w.authorNickname,
+              authorAvatarUrl: w.authorAvatarUrl,
+              kind: w.kind,
+              title: w.title,
+              description: w.desc,
+              period: w.period,
+              location: w.location || undefined,
+              photos: w.photos,
             }}
-            className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-4 cursor-pointer"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-xs text-text-5 flex items-center gap-1.5">
-                  <span className="truncate">
-                    {w.role === "host" ? w.partner : `with ${w.partner}`}
-                  </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]">
-                    {w.kind}
-                  </span>
-                </div>
-                <div className="mt-2 text-lg font-semibold text-text-1 truncate">
-                  {w.title}
-                </div>
-                {(periodLabel || w.location) && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-6">
-                    {periodLabel && (
-                      <span className="inline-flex items-center gap-1 min-w-0">
-                        <CalendarClock size={11} className="shrink-0" />
-                        <span className="truncate">{periodLabel}</span>
-                      </span>
-                    )}
-                    {w.location && (
-                      <span className="inline-flex items-center gap-1 min-w-0">
-                        <MapPin size={11} className="shrink-0" />
-                        <span className="truncate">{w.location}</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+            expanded={expanded.has(w.id)}
+            onToggle={() => toggleExpand(w.id)}
+            onAuthorClick={() =>
+              w.authorId && setViewProfileUserId(w.authorId)
+            }
+            rightTop={
               <span
-                className={`shrink-0 inline-flex items-center text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                className={`inline-flex items-center text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
                   w.role === "host"
                     ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
                     : "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border-[#999f54]/30 dark:border-[#999f54]/40"
@@ -247,32 +258,48 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
               >
                 {w.role === "host" ? "주최" : "참여"}
               </span>
-            </div>
-
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={() => toggleExpand(w.id)}
-                aria-expanded={open}
-                aria-label={open ? "접기" : "자세히"}
-                className="inline-flex items-center gap-0.5 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]"
-              >
-                자세히
-                <ChevronDown
-                  size={12}
-                  className={`transition-transform ${open ? "rotate-180" : ""}`}
-                />
-              </button>
-            </div>
-
-            {open && (w.desc || w.role === "host") && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3"
-              >
-                {w.desc && (
-                  <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
-                    {w.desc}
-                  </p>
+            }
+            expandedActions={
+              <>
+                {w.participants.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Users size={12} className="text-[#4a4d22] dark:text-[#d4d8a8]" />
+                      <h4 className="text-xs font-semibold text-text-1">
+                        참여자 {w.participants.length}
+                      </h4>
+                    </div>
+                    <ul className="flex flex-wrap gap-x-1 gap-y-2">
+                      {w.participants.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewProfileUserId(p.id);
+                            }}
+                            className="inline-flex items-center gap-2 cursor-pointer rounded-full -m-1 p-1 pr-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-colors"
+                          >
+                            <span className="w-8 h-8 shrink-0 rounded-full bg-[#999f54] text-[#F2F0DC] inline-flex items-center justify-center overflow-hidden">
+                              {p.avatarUrl ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={p.avatarUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <User size={16} strokeWidth={1.75} />
+                              )}
+                            </span>
+                            <span className="text-xs font-semibold text-text-1 truncate max-w-[140px]">
+                              {p.nickname}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {w.role === "host" && (
                   <button
@@ -284,11 +311,10 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
                     완료하기
                   </button>
                 )}
-              </div>
-            )}
-          </li>
-        );
-      })}
+              </>
+            }
+          />
+        ))}
       </ul>
 
       <Modal
@@ -327,6 +353,11 @@ export default function ActiveWorks({ onCompleted }: { onCompleted?: () => void 
           </div>
         )}
       </Modal>
+
+      <ProfileModal
+        userId={viewProfileUserId}
+        onClose={() => setViewProfileUserId(null)}
+      />
     </>
   );
 }

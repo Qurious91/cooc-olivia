@@ -58,6 +58,9 @@ export default function OngoingContent() {
         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/10 text-[10px] text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
           제작중
         </span>
+        <span className="text-[10px] text-red-500 truncate">
+          상세페이지 보기 시연을 위한 더미 데이터예요.
+        </span>
 
         <div ref={menuRef} className="ml-auto relative">
           <button

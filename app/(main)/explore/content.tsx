@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowLeft, CalendarClock, Check, ChevronDown, Heart, MapPin, Pencil, Sparkles, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Heart, Pencil, SlidersHorizontal, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import FabNewCollab from "../fab-new-collab";
 import Modal from "../../modal";
+import CollabCard from "../../_components/collab-card";
+import ProfileModal from "../../_components/profile-modal";
 import ApplyModal, { type ApplyPayload } from "./apply-modal";
 import { formatPeriod, periodFromColumns } from "../../period-picker";
-import { createCoocApplyChat } from "../../data/chats";
 import { HOME_CATEGORIES } from "../../data/categories";
 import { type CollabKind } from "../../data/collabs";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +23,9 @@ function isKind(v: string | null): v is CollabKind {
 type ViewItem = {
   id: string;
   host: string;
+  authorId: string;
+  authorNickname: string;
+  authorAvatarUrl: string | null;
   title: string;
   meta: string;
   location: string;
@@ -29,6 +33,7 @@ type ViewItem = {
   desc?: string;
   detail?: string;
   period?: string;
+  photos: string[];
 };
 
 export default function ExploreContent() {
@@ -42,20 +47,60 @@ export default function ExploreContent() {
       kind: string;
       mine: boolean;
       host: string;
+      authorId: string;
+      authorNickname: string;
+      authorAvatarUrl: string | null;
       title: string;
       description: string;
       period: string | null;
       location: string | null;
       createdAt: string;
+      photos: string[];
     }>
   >([]);
+  const [viewProfileUserId, setViewProfileUserId] = useState<string | null>(null);
   const [liked, setLiked] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState<Set<string>>(new Set());
-  const [pendingDelegate, setPendingDelegate] = useState<ViewItem | null>(null);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [applyTarget, setApplyTarget] = useState<ViewItem | null>(null);
-  const [withdrawTarget, setWithdrawTarget] = useState<ViewItem | null>(null);
+  const [expertFilter, setExpertFilter] = useState<string | null>(null);
+  const [expertOpen, setExpertOpen] = useState(false);
+  const expertRef = useRef<HTMLDivElement>(null);
+  const [domainFilter, setDomainFilter] = useState<string | null>(null);
+  const [domainOpen, setDomainOpen] = useState(false);
+  const domainRef = useRef<HTMLDivElement>(null);
+  const [conditionFilter, setConditionFilter] = useState<string | null>(null);
+  const [conditionOpen, setConditionOpen] = useState(false);
+  const conditionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expertOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!expertRef.current?.contains(e.target as Node)) setExpertOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [expertOpen]);
+
+  useEffect(() => {
+    if (!domainOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!domainRef.current?.contains(e.target as Node)) setDomainOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [domainOpen]);
+
+  useEffect(() => {
+    if (!conditionOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!conditionRef.current?.contains(e.target as Node))
+        setConditionOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [conditionOpen]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -93,7 +138,7 @@ export default function ExploreContent() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("collabs")
-        .select("id, author_id, author, title, description, period_start, period_end, period_start_time, period_end_time, location, created_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, affiliation)")
+        .select("id, author_id, author, title, description, period_start, period_end, period_start_time, period_end_time, location, created_at, collab_kinds(label), profiles!collabs_author_id_fkey(name, nickname, avatar_url, affiliation), collab_photos(image_url, position)")
         .order("created_at", { ascending: false });
       if (error) {
         console.error(
@@ -110,7 +155,9 @@ export default function ExploreContent() {
         data.map((r: any) => {
           const isMine = user ? r.author_id === user.id : false;
           const name = r.profiles?.name?.trim() ?? "";
+          const nickname = r.profiles?.nickname?.trim() ?? "";
           const aff = r.profiles?.affiliation?.trim() ?? "";
+          const avatarUrl = r.profiles?.avatar_url ?? null;
           const host =
             r.author === "소속"
               ? aff || name || "익명"
@@ -123,13 +170,25 @@ export default function ExploreContent() {
             period_start_time: r.period_start_time,
             period_end_time: r.period_end_time,
           });
+          const photoRows = (r.collab_photos ?? []) as Array<{
+            image_url: string;
+            position: number;
+          }>;
+          const photos = photoRows
+            .slice()
+            .sort((a, b) => a.position - b.position)
+            .map((p) => p.image_url);
           return {
             id: r.id,
             kind: r.collab_kinds?.label ?? "",
             mine: isMine,
             host,
+            authorId: r.author_id,
+            authorNickname: nickname || name || "익명",
+            authorAvatarUrl: avatarUrl,
             title: r.title,
             description: r.description,
+            photos,
             period: period || null,
             location: r.location ?? null,
             createdAt: r.created_at,
@@ -194,53 +253,6 @@ export default function ExploreContent() {
       return next;
     });
 
-  const toggleApply = async (id: string) => {
-    const willApply = !applied.has(id);
-    setApplied((prev) => {
-      const next = new Set(prev);
-      if (willApply) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const rollback = () =>
-      setApplied((prev) => {
-        const next = new Set(prev);
-        if (willApply) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-    if (!user) {
-      rollback();
-      return;
-    }
-    const { error } = willApply
-      ? await supabase
-          .from("collab_applications")
-          .upsert(
-            { collab_id: id, applicant_id: user.id, status: "pending" },
-            { onConflict: "collab_id,applicant_id" },
-          )
-      : await supabase
-          .from("collab_applications")
-          .update({ status: "withdrawn" })
-          .eq("applicant_id", user.id)
-          .eq("collab_id", id);
-    if (error) {
-      console.error(
-        willApply ? "[explore] apply failed" : "[explore] withdraw failed",
-        error.message,
-        error.details,
-        error.hint,
-        error.code,
-      );
-      rollback();
-    }
-  };
-
   const submitApplication = async (collabId: string, payload: ApplyPayload) => {
     setApplied((prev) => {
       const next = new Set(prev);
@@ -269,12 +281,12 @@ export default function ExploreContent() {
           applicant_id: user.id,
           status: "pending",
           message: payload.message,
-          applicant_name: payload.name,
-          applicant_avatar_url: payload.avatar_url,
-          applicant_affiliation: payload.affiliation,
-          applicant_job_title: payload.job_title,
-          applicant_region: payload.region,
-          applicant_keywords: payload.keywords,
+          applicant_name: null,
+          applicant_avatar_url: null,
+          applicant_affiliation: null,
+          applicant_job_title: null,
+          applicant_region: null,
+          applicant_keywords: null,
         },
         { onConflict: "collab_id,applicant_id" },
       );
@@ -290,18 +302,6 @@ export default function ExploreContent() {
     }
   };
 
-  const delegateApply = (it: ViewItem) => {
-    const room = createCoocApplyChat({
-      listing: {
-        title: it.title,
-        host: it.host,
-        kind,
-        detail: it.detail,
-      },
-    });
-    router.push(`/chat?id=${encodeURIComponent(room.id)}`);
-  };
-
   const items: ViewItem[] = useMemo(
     () =>
       dbRows
@@ -309,6 +309,9 @@ export default function ExploreContent() {
         .map((r) => ({
           id: r.id,
           host: r.host,
+          authorId: r.authorId,
+          authorNickname: r.authorNickname,
+          authorAvatarUrl: r.authorAvatarUrl,
           title: r.title,
           meta:
             formatPeriod(r.period) ||
@@ -318,6 +321,7 @@ export default function ExploreContent() {
           desc: r.description,
           detail: r.description,
           period: r.period ?? undefined,
+          photos: r.photos,
         })),
     [kind, dbRows],
   );
@@ -357,55 +361,183 @@ export default function ExploreContent() {
         </div>
       </div>
 
+      {kind === "게스트 초청" && (
+        <div className="bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              disabled
+              title="준비중"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] whitespace-nowrap border border-dashed border-[#999f54]/40 bg-surface text-text-4 cursor-not-allowed shrink-0"
+            >
+              <SlidersHorizontal size={12} />
+              내 조건 맞추기
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
+                제작중
+              </span>
+            </button>
+            <span className="text-text-6 text-[11px] shrink-0">|</span>
+            <div ref={expertRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setExpertOpen((v) => !v)}
+                aria-expanded={expertOpen}
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] whitespace-nowrap border ${
+                  expertFilter
+                    ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                    : "bg-surface text-text-4 border-black/15 dark:border-white/15"
+                }`}
+              >
+                {expertFilter ?? "전문가"}
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform ${expertOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {expertOpen && (
+                <div className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
+                  {["셰프", "바텐더", "소믈리에"].map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        setExpertFilter(label);
+                        setExpertOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      <span>{label}</span>
+                      {expertFilter === label && (
+                        <Check size={12} className="text-[#999f54]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div ref={domainRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setDomainOpen((v) => !v)}
+                aria-expanded={domainOpen}
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] whitespace-nowrap border ${
+                  domainFilter
+                    ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                    : "bg-surface text-text-4 border-black/15 dark:border-white/15"
+                }`}
+              >
+                {domainFilter ?? "분야"}
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform ${domainOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {domainOpen && (
+                <div className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
+                  {["한식", "중식", "파인다이닝", "일식", "컨템프러리", "양식"].map(
+                    (label) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => {
+                          setDomainFilter(label);
+                          setDomainOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                      >
+                        <span>{label}</span>
+                        {domainFilter === label && (
+                          <Check size={12} className="text-[#999f54]" />
+                        )}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+            <div ref={conditionRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setConditionOpen((v) => !v)}
+                aria-expanded={conditionOpen}
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] whitespace-nowrap border ${
+                  conditionFilter
+                    ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                    : "bg-surface text-text-4 border-black/15 dark:border-white/15"
+                }`}
+              >
+                {conditionFilter ?? "조건"}
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform ${conditionOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {conditionOpen && (
+                <div className="absolute left-0 top-full mt-1 w-52 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
+                  {[
+                    "미쉐린 레스토랑 근무 경험",
+                    "소믈리에 자격증",
+                    "해외 근무 경험",
+                  ].map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        setConditionFilter(label);
+                        setConditionOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      <span className="truncate">{label}</span>
+                      {conditionFilter === label && (
+                        <Check size={12} className="text-[#999f54] shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 px-4 py-4 pb-24 max-w-xl w-full mx-auto">
         <p className="text-xs text-text-5 mb-3">
           {kind} 제안 {items.length}건
         </p>
         <ul className="space-y-3">
           {items.map((it) => (
-            <li
+            <CollabCard
               key={it.id}
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest("button, a, input, [role='button']")) return;
-                toggleExpand(it.id);
+              item={{
+                id: it.id,
+                authorId: it.authorId,
+                authorNickname: it.authorNickname,
+                authorAvatarUrl: it.authorAvatarUrl,
+                kind,
+                title: it.title,
+                description: it.mine ? it.desc : it.detail,
+                period: it.meta,
+                location:
+                  it.location && it.location !== "내 게시물"
+                    ? it.location
+                    : undefined,
+                photos: it.photos,
               }}
-              className={`rounded-xl border bg-surface shadow-sm p-4 cursor-pointer ${
-                it.mine ? "border-[#999f54]/60" : "border-black/10 dark:border-white/10"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-text-5 flex items-center gap-1.5">
-                    <span className="truncate">{it.host}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]">
-                      {kind}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-lg font-semibold text-text-1 truncate">
-                    {it.title}
-                  </div>
-                  {(it.meta || (it.location && it.location !== "내 게시물")) && (
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-6">
-                      {it.meta && (
-                        <span className="inline-flex items-center gap-1 min-w-0">
-                          <CalendarClock size={11} className="shrink-0" />
-                          <span className="truncate">{it.meta}</span>
-                        </span>
-                      )}
-                      {it.location && it.location !== "내 게시물" && (
-                        <span className="inline-flex items-center gap-1 min-w-0">
-                          <MapPin size={11} className="shrink-0" />
-                          <span className="truncate">{it.location}</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+              expanded={expanded.has(it.id)}
+              onToggle={() => toggleExpand(it.id)}
+              onAuthorClick={() => setViewProfileUserId(it.authorId)}
+              className={
+                it.mine
+                  ? "border-[#999f54]/60"
+                  : "border-black/10 dark:border-white/10"
+              }
+              rightTop={
                 <button
                   onClick={() => toggleLike(it.id)}
                   aria-label={liked.has(it.id) ? "좋아요 취소" : "좋아요"}
                   aria-pressed={liked.has(it.id)}
-                  className="shrink-0 p-1.5 -m-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+                  className="p-1.5 -m-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <Heart
                     size={18}
@@ -416,102 +548,55 @@ export default function ExploreContent() {
                     }
                   />
                 </button>
-              </div>
-
-              <div className="mt-2 flex justify-end">
-                <button
-                  onClick={() => toggleExpand(it.id)}
-                  aria-expanded={expanded.has(it.id)}
-                  aria-label={expanded.has(it.id) ? "접기" : "자세히"}
-                  className="inline-flex items-center gap-0.5 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8]"
-                >
-                  자세히
-                  <ChevronDown
-                    size={12}
-                    className={`transition-transform ${expanded.has(it.id) ? "rotate-180" : ""}`}
-                  />
-                </button>
-              </div>
-
-              {expanded.has(it.id) && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3"
-                >
-                  {it.mine ? (
-                    <>
-                      {it.desc ? (
-                        <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
-                          {it.desc}
-                        </p>
+              }
+              expandedActions={
+                it.mine ? (
+                  <div className="flex justify-end items-center gap-3">
+                    <Link
+                      href={`/collab?id=${it.id}`}
+                      className="inline-flex items-center gap-1 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] hover:underline"
+                    >
+                      <Pencil size={12} />
+                      수정
+                    </Link>
+                    <button
+                      onClick={() => onDelete(it.id)}
+                      className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-600"
+                    >
+                      <Trash2 size={12} />
+                      삭제
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-1">
+                    <button
+                      onClick={() => {
+                        if (!applied.has(it.id)) setApplyTarget(it);
+                      }}
+                      disabled={applied.has(it.id)}
+                      aria-pressed={applied.has(it.id)}
+                      className={`inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full font-semibold ${
+                        applied.has(it.id)
+                          ? "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40 cursor-default"
+                          : "bg-[#999f54] text-[#F2F0DC]"
+                      }`}
+                    >
+                      {applied.has(it.id) ? (
+                        <>
+                          <Check size={12} />
+                          참여 요청됨
+                        </>
                       ) : (
-                        <p className="text-xs text-text-6">아직 설명이 비어 있어요.</p>
+                        <>
+                          <UserPlus size={12} />
+                          참여하기
+                        </>
                       )}
-                      <div className="flex justify-end items-center gap-3">
-                        <Link
-                          href={`/collab?id=${it.id}`}
-                          className="inline-flex items-center gap-1 text-[11px] text-[#4a4d22] dark:text-[#d4d8a8] hover:underline"
-                        >
-                          <Pencil size={12} />
-                          수정
-                        </Link>
-                        <button
-                          onClick={() => onDelete(it.id)}
-                          className="inline-flex items-center gap-1 text-[11px] text-text-6 hover:text-red-600"
-                        >
-                          <Trash2 size={12} />
-                          삭제
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {it.detail && (
-                        <p className="text-xs text-text-4 whitespace-pre-wrap leading-relaxed">
-                          {it.detail}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <button
-                          onClick={() => {
-                            if (applied.has(it.id)) {
-                              setWithdrawTarget(it);
-                            } else {
-                              setApplyTarget(it);
-                            }
-                          }}
-                          aria-pressed={applied.has(it.id)}
-                          className={`inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full font-semibold ${
-                            applied.has(it.id)
-                              ? "bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40"
-                              : "bg-[#999f54] text-[#F2F0DC]"
-                          }`}
-                        >
-                          {applied.has(it.id) ? (
-                            <>
-                              <Check size={12} />
-                              참여 요청됨
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus size={12} />
-                              참여하기
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setPendingDelegate(it)}
-                          className="inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full bg-[#999f54]/10 dark:bg-[#999f54]/20 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/30 dark:border-[#999f54]/40 font-semibold hover:bg-[#999f54]/15 dark:hover:bg-[#999f54]/25"
-                        >
-                          <Sparkles size={11} />
-                          COOC에게 맡기기
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </li>
+                    </button>
+                  </div>
+                )
+              }
+            />
           ))}
         </ul>
       </main>
@@ -528,47 +613,6 @@ export default function ExploreContent() {
           setApplyTarget(null);
         }}
       />
-
-      <Modal
-        open={withdrawTarget !== null}
-        onClose={() => setWithdrawTarget(null)}
-        title="참여 요청 취소"
-        size="sm"
-      >
-        {withdrawTarget && (
-          <div className="flex flex-col gap-5">
-            <div className="text-sm text-text-3 leading-relaxed space-y-2">
-              <p>
-                <span className="font-semibold text-text-1">{withdrawTarget.title}</span>
-                {" "}참여 요청을 취소할까요?
-              </p>
-              <p className="text-xs text-text-5">
-                상대방에게 더 이상 표시되진 않지만, 이미 알림이 전달되었을 수 있어요.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setWithdrawTarget(null)}
-                className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
-              >
-                유지
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const t = withdrawTarget;
-                  setWithdrawTarget(null);
-                  if (t) toggleApply(t.id);
-                }}
-                className="flex-[2] py-2.5 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600"
-              >
-                취소하기
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       <Modal
         open={removeTarget !== null}
@@ -597,37 +641,10 @@ export default function ExploreContent() {
         </div>
       </Modal>
 
-      <Modal
-        open={pendingDelegate !== null}
-        onClose={() => setPendingDelegate(null)}
-        title="COOC에게 맡기기"
-        size="sm"
-      >
-        <div className="flex flex-col gap-5">
-          <p className="text-sm text-text-3 leading-relaxed">
-            COOC와의 채팅으로 바로 연결됩니다.
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPendingDelegate(null)}
-              className="flex-1 py-2.5 rounded-lg border border-black/15 dark:border-white/15 text-sm text-text-4"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (pendingDelegate) delegateApply(pendingDelegate);
-                setPendingDelegate(null);
-              }}
-              className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <ProfileModal
+        userId={viewProfileUserId}
+        onClose={() => setViewProfileUserId(null)}
+      />
     </div>
   );
 }
