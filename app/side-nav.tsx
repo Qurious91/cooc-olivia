@@ -3,10 +3,10 @@
 import {
   Bell,
   Briefcase,
+  Handshake,
   LogOut,
   MessageCircle,
   Moon,
-  Palette,
   Sun,
   User,
   UserPlus,
@@ -19,7 +19,8 @@ import { createClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
   { href: "/messages", label: "채팅", Icon: MessageCircle },
-  { href: "/projects", label: "프로젝트", Icon: Briefcase },
+  { href: "/projects", label: "내 프로젝트", Icon: Briefcase },
+  { href: "/collabs/desktop", label: "협업", Icon: Handshake },
 ] as const;
 
 const ROW =
@@ -206,10 +207,6 @@ export default function SideNav() {
             {dark ? <Sun size={18} /> : <Moon size={18} />}
             {dark ? "라이트 모드" : "다크 모드"}
           </button>
-          <Link href="/design" className={ROW}>
-            <Palette size={18} />
-            디자인
-          </Link>
           <button type="button" onClick={handleSignOut} className={ROW}>
             <LogOut size={18} />
             로그아웃

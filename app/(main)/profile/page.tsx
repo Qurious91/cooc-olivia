@@ -788,6 +788,80 @@ export default function Profile() {
   const [bizCeo, setBizCeo] = useState("");
   const [bizStartDt, setBizStartDt] = useState("");
   const [bizCorpNo, setBizCorpNo] = useState("");
+  const [bizLoading, setBizLoading] = useState(false);
+  const [bizResult, setBizResult] = useState<unknown>(null);
+  const [bizError, setBizError] = useState<string | null>(null);
+  // status 응답 블록 (진위확인 통과 시 validate 응답 안에도 같은 구조로 옴)
+  type BizStatusBlock = {
+    b_stt?: string;
+    tax_type?: string;
+    end_dt?: string;
+    tax_type_change_dt?: string;
+    rbf_tax_type?: string;
+    invoice_apply_dt?: string;
+    utcc_yn?: string;
+  };
+
+  // 자동 하이픈 마스킹 (XXX-XX-XXXXX / XXXXXX-XXXXXXX).
+  const formatBizNoMask = (raw: string) => {
+    const d = raw.replace(/[^0-9]/g, "").slice(0, 10);
+    if (d.length <= 3) return d;
+    if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
+  };
+  const formatCorpNoMask = (raw: string) => {
+    const d = raw.replace(/[^0-9]/g, "").slice(0, 13);
+    if (d.length <= 6) return d;
+    return `${d.slice(0, 6)}-${d.slice(6)}`;
+  };
+
+  // 사업자번호 4-5번째 자리가 80-89면 법인사업자.
+  // 법인이면 법인등록번호를 필수로 강제.
+  const bizDigits = bizNo.replace(/[^0-9]/g, "");
+  const bizMiddle = bizDigits.length >= 5
+    ? parseInt(bizDigits.slice(3, 5), 10)
+    : NaN;
+  const bizIsCorporation =
+    !Number.isNaN(bizMiddle) && bizMiddle >= 80 && bizMiddle <= 89;
+  const bizIsIndividual =
+    !Number.isNaN(bizMiddle) && !bizIsCorporation;
+  const bizCorpNoDigits = bizCorpNo.replace(/[^0-9]/g, "");
+  const bizCorpNoRequiredButMissing =
+    bizIsCorporation && bizCorpNoDigits.length !== 13;
+  const bizCanSubmit =
+    !bizLoading &&
+    bizDigits.length === 10 &&
+    bizCeo.trim().length > 0 &&
+    bizStartDt.replace(/[^0-9]/g, "").length === 8 &&
+    !bizCorpNoRequiredButMissing;
+
+  const runBizVerify = async () => {
+    setBizLoading(true);
+    setBizError(null);
+    setBizResult(null);
+    try {
+      const res = await fetch("/api/biz-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          b_no: bizNo,
+          p_nm: bizCeo,
+          start_dt: bizStartDt,
+          corp_no: bizCorpNo,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBizError((data as { error?: string }).error ?? `HTTP ${res.status}`);
+      } else {
+        setBizResult(data);
+      }
+    } catch (e) {
+      setBizError(String(e));
+    } finally {
+      setBizLoading(false);
+    }
+  };
   const [coocVerified, setCoocVerified] = useState(false);
   const [coocModalOpen, setCoocModalOpen] = useState(false);
   const [coocFiles, setCoocFiles] = useState<File[]>([]);
@@ -1829,8 +1903,8 @@ export default function Profile() {
                       <span className="text-[10px] font-semibold text-[#c0392b]">
                         *필수
                       </span>
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
-                        제작중
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                        논의필요
                       </span>
                     </span>
                     <span className="block mt-0.5 text-[11px] text-text-5">
@@ -1869,8 +1943,8 @@ export default function Profile() {
                         <span className="text-[10px] font-semibold text-[#c0392b]">
                           *필수
                         </span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
-                          제작중
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                          정책필요
                         </span>
                       </span>
                       <span className="block mt-0.5 text-[11px] text-text-5">
@@ -1910,8 +1984,8 @@ export default function Profile() {
                         <span className="text-[10px] font-semibold text-[#c0392b]">
                           *필수
                         </span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
-                          제작중
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                          정책필요
                         </span>
                       </span>
                       <span className="block mt-0.5 text-[11px] text-text-5">
@@ -2823,12 +2897,13 @@ export default function Profile() {
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={bizNo}
-                  onChange={(e) => setBizNo(e.target.value)}
+                  onChange={(e) => setBizNo(formatBizNoMask(e.target.value))}
                   className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
                   placeholder="000-00-00000"
                 />
-                <p className="mt-1 text-[10px] text-text-6">하이픈 제외 10자리</p>
+                <p className="mt-1 text-[10px] text-text-6">숫자만 입력 · 하이픈 자동</p>
               </div>
 
               <div>
@@ -2856,51 +2931,224 @@ export default function Profile() {
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={bizStartDt}
-                  onChange={(e) => setBizStartDt(e.target.value)}
+                  onChange={(e) =>
+                    setBizStartDt(
+                      e.target.value.replace(/[^0-9]/g, "").slice(0, 8),
+                    )
+                  }
                   className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
                   placeholder="YYYYMMDD"
                 />
               </div>
 
               <div className="pt-1">
-                <p className="text-[11px] font-semibold text-text-5 mb-2">
-                  추가 정보 (선택)
-                </p>
+                {bizIsCorporation ? (
+                  <p className="text-[11px] font-semibold text-text-5 mb-2 inline-flex items-center gap-1.5">
+                    추가 정보
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#1d4f91]/10 text-[10px] text-[#1d4f91] dark:text-[#7ba6dd] border border-[#1d4f91]/30">
+                      법인사업자
+                    </span>
+                  </p>
+                ) : bizIsIndividual ? (
+                  <p className="text-[11px] font-semibold text-text-5 mb-2 inline-flex items-center gap-1.5">
+                    추가 정보 (선택)
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-[10px] text-text-5 border border-black/10 dark:border-white/15">
+                      개인사업자
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-semibold text-text-5 mb-2">
+                    추가 정보 (선택)
+                  </p>
+                )}
                 <div>
-                  <label className="block text-[11px] font-medium text-text-5 mb-1">
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-1.5">
                     법인등록번호
+                    {bizIsCorporation && (
+                      <span className="text-[10px] font-semibold text-[#c0392b]">
+                        *필수
+                      </span>
+                    )}
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     value={bizCorpNo}
-                    onChange={(e) => setBizCorpNo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider"
-                    placeholder="000000-0000000"
+                    onChange={(e) => setBizCorpNo(formatCorpNoMask(e.target.value))}
+                    disabled={bizIsIndividual}
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder={
+                      bizIsIndividual
+                        ? "개인사업자는 입력 불필요"
+                        : "000000-0000000"
+                    }
                   />
+                  {bizCorpNoRequiredButMissing && (
+                    <p className="mt-1 text-[10px] text-red-500">
+                      법인사업자는 법인등록번호 13자리를 입력해주세요.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <p className="text-[11px] text-text-5 leading-relaxed">
-                입력하신 정보는 국세청 사업자등록 진위확인 API로 조회되며, 결과 값(상호·과세유형·영업상태)이 함께 저장됩니다.
+                입력하신 정보는 국세청 사업자등록 진위확인 + 상태조회 API 두 곳에 동시 조회됩니다.
               </p>
+
+              {bizError && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-[11px] text-red-600 dark:text-red-300 leading-relaxed whitespace-pre-wrap">
+                  {bizError}
+                </div>
+              )}
+
+              {bizResult !== null && (() => {
+                const r = bizResult as {
+                  validate?: {
+                    data?: {
+                      data?: Array<{
+                        valid?: string;
+                        valid_msg?: string;
+                        status?: BizStatusBlock;
+                      }>;
+                    };
+                  };
+                  status?: { data?: { data?: Array<BizStatusBlock> } };
+                };
+                const validateRow = r?.validate?.data?.data?.[0];
+                const statusRow =
+                  validateRow?.status ?? r?.status?.data?.data?.[0] ?? null;
+                const valid = validateRow?.valid;
+                const passed = valid === "01";
+
+                if (!passed) {
+                  return (
+                    <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2.5 flex items-center gap-2 text-red-700 dark:text-red-300">
+                      <XCircle size={16} />
+                      <span className="text-sm font-semibold">
+                        진위 확인 실패
+                        {validateRow?.valid_msg
+                          ? ` · ${validateRow.valid_msg}`
+                          : ""}
+                      </span>
+                    </div>
+                  );
+                }
+
+                const fmt = (v: string | undefined | null) =>
+                  !v || v.trim() === "" ? "—" : v;
+                const fmtDate = (v: string | undefined | null) => {
+                  if (!v || v.length !== 8) return "—";
+                  return `${v.slice(0, 4)}.${v.slice(4, 6)}.${v.slice(6, 8)}`;
+                };
+
+                const matchRows: Array<[string, string]> = [
+                  ["사업자등록번호", bizDigits],
+                  ["대표자명", bizCeo.trim()],
+                  ["개업일자", bizStartDt.replace(/[^0-9]/g, "")],
+                ];
+                if (bizIsCorporation && bizCorpNoDigits) {
+                  matchRows.push(["법인등록번호", bizCorpNoDigits]);
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                      <Check size={16} />
+                      <span className="text-sm font-semibold">
+                        진위 확인 일치
+                      </span>
+                    </div>
+
+                    <div className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-text-5 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.04]">
+                        진위확인 항목
+                      </div>
+                      <table className="w-full text-[11px]">
+                        <tbody>
+                          {matchRows.map(([label, value]) => (
+                            <tr
+                              key={label}
+                              className="border-b border-black/5 dark:border-white/5 last:border-0"
+                            >
+                              <td className="px-3 py-2 text-text-5 w-[40%] align-top">
+                                {label}
+                              </td>
+                              <td className="px-3 py-2 text-text-2 break-all">
+                                {fmt(value)}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                  <Check size={10} />
+                                  일치
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-text-5 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.04]">
+                        사업자 정보
+                      </div>
+                      <table className="w-full text-[11px]">
+                        <tbody>
+                          {[
+                            ["영업상태", fmt(statusRow?.b_stt)],
+                            ["과세유형", fmt(statusRow?.tax_type)],
+                            ["폐업일자", fmtDate(statusRow?.end_dt)],
+                            [
+                              "과세유형 변경일자",
+                              fmtDate(statusRow?.tax_type_change_dt),
+                            ],
+                            [
+                              "변경 전 과세유형",
+                              fmt(statusRow?.rbf_tax_type),
+                            ],
+                            [
+                              "세금계산서 발행 적용일자",
+                              fmtDate(statusRow?.invoice_apply_dt),
+                            ],
+                            ["단위과세전환 여부", fmt(statusRow?.utcc_yn)],
+                          ].map(([label, value]) => (
+                            <tr
+                              key={label}
+                              className="border-b border-black/5 dark:border-white/5 last:border-0"
+                            >
+                              <td className="px-3 py-2 text-text-5 w-[45%] align-top">
+                                {label}
+                              </td>
+                              <td className="px-3 py-2 text-text-1 break-words">
+                                {value}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
               <button
                 type="button"
-                disabled
-                title="준비중"
-                className="w-full py-3 rounded-xl bg-[#1d4f91] text-white text-sm font-semibold opacity-40 cursor-not-allowed"
+                onClick={runBizVerify}
+                disabled={!bizCanSubmit}
+                className="w-full py-3 rounded-xl bg-[#1d4f91] text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                사업자 조회
+                {bizLoading ? "조회 중…" : "사업자 조회"}
               </button>
               <button
                 type="button"
                 onClick={() => setBizModalOpen(false)}
                 className="w-full py-2 text-xs text-text-5 hover:text-text-3"
               >
-                취소
+                닫기
               </button>
             </div>
           </div>
