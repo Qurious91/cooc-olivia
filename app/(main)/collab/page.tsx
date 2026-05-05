@@ -8,8 +8,7 @@ import Modal from "../../modal";
 import PeriodPicker, { periodFromColumns, periodToColumns } from "../../period-picker";
 import { createClient } from "@/lib/supabase/client";
 
-// author 노출 방식은 닉네임으로 고정 (제안 작성자 = 로그인한 사용자의 닉네임).
-const AUTHOR_MODE = "닉네임";
+type AuthorMode = "닉네임" | "이름";
 
 type CollabKindRow = {
   key: string;
@@ -54,6 +53,7 @@ function NewCollab() {
     })();
   }, []);
   const [profile, setProfile] = useState({ nickname: "", name: "" });
+  const [authorMode, setAuthorMode] = useState<AuthorMode>("닉네임");
   const [title, setTitle] = useState("");
 
   useEffect(() => {
@@ -91,6 +91,9 @@ function NewCollab() {
       if (!data) return;
       const row = data as any;
       if (row.collab_kinds?.label) setKind(row.collab_kinds.label);
+      if (row.author === "이름" || row.author === "닉네임") {
+        setAuthorMode(row.author);
+      }
       setTitle(row.title ?? "");
       setDesc(row.description ?? "");
       const periodValue = periodFromColumns({
@@ -171,7 +174,7 @@ function NewCollab() {
       const periodCols = periodToColumns(period.trim());
       const payload = {
         kind: kindKey,
-        author: AUTHOR_MODE,
+        author: authorMode,
         title: title.trim(),
         description: desc.trim(),
         ...periodCols,
@@ -301,20 +304,48 @@ function NewCollab() {
 
           <div>
             <label className="block text-xs font-medium text-text-4 mb-1.5">
-              작성자
+              작성자 표시
             </label>
-            {profile.nickname ? (
-              <p className="text-sm text-text-2 font-medium">
-                {profile.nickname}
-              </p>
-            ) : (
-              <Link
-                href="/profile"
-                className="inline-block text-[11px] text-[#999f54] hover:underline"
-              >
-                닉네임이 없어요. 온보딩을 완료해주세요
-              </Link>
-            )}
+            <div className="flex flex-wrap gap-1.5">
+              {(["닉네임", "이름"] as const).map((mode) => {
+                const value = mode === "닉네임" ? profile.nickname : profile.name;
+                const disabled = !value;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setAuthorMode(mode)}
+                    className={`px-2.5 py-1 rounded-full text-xs whitespace-nowrap border ${
+                      authorMode === mode
+                        ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                        : "bg-surface text-text-4 border-black/15 dark:border-white/15"
+                    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  >
+                    {mode}
+                  </button>
+                );
+              })}
+            </div>
+            {(() => {
+              const current =
+                authorMode === "닉네임" ? profile.nickname : profile.name;
+              if (current) {
+                return (
+                  <p className="mt-1.5 text-sm text-text-2 font-medium">
+                    {current}
+                  </p>
+                );
+              }
+              return (
+                <Link
+                  href="/profile"
+                  className="mt-1.5 inline-block text-[11px] text-[#999f54] hover:underline"
+                >
+                  {authorMode}이 없어요. 프로필에서 등록해주세요
+                </Link>
+              );
+            })()}
           </div>
 
           <div>

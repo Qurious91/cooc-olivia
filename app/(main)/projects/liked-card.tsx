@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Check, ChevronDown, Heart, MapPin, Pencil, Trash2, UserPlus } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Heart, MapPin, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -198,12 +198,14 @@ export default function LikedList() {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-6 text-center">
-        <p className="text-xs text-text-5">
-          아직 찜한 제안이 없어요.{" "}
-          <Link className="text-[#4a4d22] dark:text-[#d4d8a8] underline" href="/explore">
-            탐색하러 가기
-          </Link>
-        </p>
+        <p className="text-xs text-text-5">아직 찜한 제안이 없어요.</p>
+        <Link
+          href="/explore"
+          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-[#4a4d22] dark:border-[#d4d8a8] text-[#4a4d22] dark:text-[#d4d8a8] bg-transparent hover:bg-[#999f54]/5"
+        >
+          <Search size={14} />
+          탐색하러 가기
+        </Link>
       </div>
     );
   }

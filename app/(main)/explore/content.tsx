@@ -4,7 +4,6 @@ import { ArrowLeft, Check, ChevronDown, Heart, Pencil, Plus, SlidersHorizontal, 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import FabNewCollab from "../fab-new-collab";
 import Modal from "../../modal";
 import CollabCard from "../../_components/collab-card";
 import ProfileModal from "../../_components/profile-modal";
@@ -26,6 +25,7 @@ type ViewItem = {
   authorId: string;
   authorNickname: string;
   authorAvatarUrl: string | null;
+  kind: string;
   title: string;
   meta: string;
   location: string;
@@ -73,12 +73,22 @@ export default function ExploreContent() {
   const [conditionFilter, setConditionFilter] = useState<string | null>(null);
   const [conditionOpen, setConditionOpen] = useState(false);
   const conditionRef = useRef<HTMLDivElement>(null);
-  const [kindFilter, setKindFilter] = useState<string | null>(null);
+  const [kindFilters, setKindFilters] = useState<string[]>(
+    isKind(initial) ? [initial] : [],
+  );
   const [kindOpen, setKindOpen] = useState(false);
   const kindRef = useRef<HTMLDivElement>(null);
-  const [criteriaFilter, setCriteriaFilter] = useState<string | null>(null);
+  const [criteriaFilters, setCriteriaFilters] = useState<string[]>([]);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   const criteriaRef = useRef<HTMLDivElement>(null);
+  const toggleKind = (label: string) =>
+    setKindFilters((prev) =>
+      prev.includes(label) ? prev.filter((v) => v !== label) : [...prev, label],
+    );
+  const toggleCriteria = (label: string) =>
+    setCriteriaFilters((prev) =>
+      prev.includes(label) ? prev.filter((v) => v !== label) : [...prev, label],
+    );
 
   useEffect(() => {
     if (!expertOpen) return;
@@ -340,13 +350,16 @@ export default function ExploreContent() {
   const items: ViewItem[] = useMemo(
     () =>
       dbRows
-        .filter((r) => r.kind === kind)
+        .filter(
+          (r) => kindFilters.length === 0 || kindFilters.includes(r.kind),
+        )
         .map((r) => ({
           id: r.id,
           host: r.host,
           authorId: r.authorId,
           authorNickname: r.authorNickname,
           authorAvatarUrl: r.authorAvatarUrl,
+          kind: r.kind,
           title: r.title,
           meta:
             formatPeriod(r.period) ||
@@ -358,7 +371,7 @@ export default function ExploreContent() {
           period: r.period ?? undefined,
           photos: r.photos,
         })),
-    [kind, dbRows],
+    [kindFilters, dbRows],
   );
 
   return (
@@ -401,14 +414,11 @@ export default function ExploreContent() {
               <div className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
                 <button
                   type="button"
-                  onClick={() => {
-                    setKindFilter(null);
-                    setKindOpen(false);
-                  }}
+                  onClick={() => setKindFilters([])}
                   className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <span>전체보기</span>
-                  {kindFilter === null && (
+                  {kindFilters.length === 0 && (
                     <Check size={12} className="text-[#999f54]" />
                   )}
                 </button>
@@ -417,14 +427,11 @@ export default function ExploreContent() {
                     <button
                       key={label}
                       type="button"
-                      onClick={() => {
-                        setKindFilter(label);
-                        setKindOpen(false);
-                      }}
+                      onClick={() => toggleKind(label)}
                       className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
                     >
                       <span>{label}</span>
-                      {kindFilter === label && (
+                      {kindFilters.includes(label) && (
                         <Check size={12} className="text-[#999f54]" />
                       )}
                     </button>
@@ -451,14 +458,11 @@ export default function ExploreContent() {
               <div className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
                 <button
                   type="button"
-                  onClick={() => {
-                    setCriteriaFilter(null);
-                    setCriteriaOpen(false);
-                  }}
+                  onClick={() => setCriteriaFilters([])}
                   className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <span>전체보기</span>
-                  {criteriaFilter === null && (
+                  {criteriaFilters.length === 0 && (
                     <Check size={12} className="text-[#999f54]" />
                   )}
                 </button>
@@ -467,14 +471,11 @@ export default function ExploreContent() {
                     <button
                       key={label}
                       type="button"
-                      onClick={() => {
-                        setCriteriaFilter(label);
-                        setCriteriaOpen(false);
-                      }}
+                      onClick={() => toggleCriteria(label)}
                       className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
                     >
                       <span>{label}</span>
-                      {criteriaFilter === label && (
+                      {criteriaFilters.includes(label) && (
                         <Check size={12} className="text-[#999f54]" />
                       )}
                     </button>
@@ -483,33 +484,43 @@ export default function ExploreContent() {
               </div>
             )}
           </div>
-          {kindFilter && (
-            <span className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54] shrink-0">
-              {kindFilter}
-              <button
-                type="button"
-                onClick={() => setKindFilter(null)}
-                aria-label={`${kindFilter} 선택 해제`}
-                className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
-              >
-                <X size={10} />
-              </button>
-            </span>
-          )}
-          {criteriaFilter && (
-            <span className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54] shrink-0">
-              {criteriaFilter}
-              <button
-                type="button"
-                onClick={() => setCriteriaFilter(null)}
-                aria-label={`${criteriaFilter} 선택 해제`}
-                className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
-              >
-                <X size={10} />
-              </button>
-            </span>
-          )}
         </div>
+        {(kindFilters.length > 0 || criteriaFilters.length > 0) && (
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            {kindFilters.map((label) => (
+              <span
+                key={`k-${label}`}
+                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+              >
+                {label}
+                <button
+                  type="button"
+                  onClick={() => toggleKind(label)}
+                  aria-label={`${label} 선택 해제`}
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+            {criteriaFilters.map((label) => (
+              <span
+                key={`c-${label}`}
+                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+              >
+                {label}
+                <button
+                  type="button"
+                  onClick={() => toggleCriteria(label)}
+                  aria-label={`${label} 선택 해제`}
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {false && (
@@ -678,7 +689,12 @@ export default function ExploreContent() {
 
       <main className="flex-1 px-4 py-4 pb-24 max-w-xl w-full mx-auto">
         <p className="text-xs text-text-5 mb-3">
-          {kind} 제안 {items.length}건
+          {kindFilters.length === 0
+            ? "전체"
+            : kindFilters.length === 1
+              ? kindFilters[0]
+              : `${kindFilters.length}개 종류`}{" "}
+          제안 {items.length}건
         </p>
         <ul className="space-y-3">
           {items.map((it) => (
@@ -689,7 +705,7 @@ export default function ExploreContent() {
                 authorId: it.authorId,
                 authorNickname: it.authorNickname,
                 authorAvatarUrl: it.authorAvatarUrl,
-                kind,
+                kind: it.kind,
                 title: it.title,
                 description: it.mine ? it.desc : it.detail,
                 period: it.meta,
@@ -775,7 +791,6 @@ export default function ExploreContent() {
           ))}
         </ul>
       </main>
-      <FabNewCollab />
 
       <ApplyModal
         open={applyTarget !== null}

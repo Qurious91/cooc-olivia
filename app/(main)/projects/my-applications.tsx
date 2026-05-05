@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock3, X, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, Search, X, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CollabCard from "../../_components/collab-card";
@@ -209,12 +209,14 @@ export default function MyApplications({ initialOpenId }: { initialOpenId?: stri
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-6 text-center">
-        <p className="text-xs text-text-5">
-          아직 보낸 참여 요청이 없어요.{" "}
-          <Link className="text-[#4a4d22] dark:text-[#d4d8a8] underline" href="/explore">
-            탐색하러 가기
-          </Link>
-        </p>
+        <p className="text-xs text-text-5">아직 보낸 참여 요청이 없어요.</p>
+        <Link
+          href="/explore"
+          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-[#4a4d22] dark:border-[#d4d8a8] text-[#4a4d22] dark:text-[#d4d8a8] bg-transparent hover:bg-[#999f54]/5"
+        >
+          <Search size={14} />
+          탐색하러 가기
+        </Link>
       </div>
     );
   }

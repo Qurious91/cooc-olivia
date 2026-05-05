@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  Archive,
   ChefHat,
+  ChevronRight,
   Handshake,
   Store,
   UserPlus,
@@ -247,6 +249,27 @@ export default function Home() {
                 ))}
               </ul>
             </section>
+
+            <Link
+              href="/archive"
+              className="block rounded-xl bg-surface p-5 shadow-sm border border-black/5 dark:border-white/5 hover:border-[#999f54]/30 hover:bg-[#999f54]/[0.03] transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 w-11 h-11 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
+                  <Archive size={22} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-semibold text-text-1">협업 아카이브</h3>
+                  <p className="text-[11px] text-text-5 mt-0.5">
+                    완료된 협업 사례를 모아봐요
+                  </p>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-text-6 group-hover:text-[#4a4d22] dark:group-hover:text-[#d4d8a8] transition-colors"
+                />
+              </div>
+            </Link>
           </div>
         ) : tab === "F&B 크리에이터" ? (
           <div className="space-y-3">

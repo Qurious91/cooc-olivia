@@ -3,7 +3,6 @@
 import { Briefcase, Heart, Megaphone, Send } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import FabNewCollab from "../fab-new-collab";
 import ActiveWorks from "./active-works";
 import CompletedWorks from "./completed-works";
 import LikedList from "./liked-card";
@@ -81,7 +80,6 @@ export default function ProjectsContent() {
           )}
         </div>
         <CompletedWorks refreshKey={completedKey} />
-        <FabNewCollab />
     </main>
   );
 }

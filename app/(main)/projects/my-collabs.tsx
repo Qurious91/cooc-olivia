@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, MessageCircle, MoreVertical, Pencil, PlayCircle, Trash2, User, UserPlus } from "lucide-react";
+import { Check, MessageCircle, MoreVertical, Pencil, PlayCircle, Plus, Trash2, User, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -412,9 +412,14 @@ export default function MyCollabs({ initialOpenId }: { initialOpenId?: string })
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-sm p-6 text-center">
-        <p className="text-xs text-text-5">
-          아직 올린 제안이 없어요. 우측 하단의 “새 제안 올리기”로 시작해보세요.
-        </p>
+        <p className="text-xs text-text-5">아직 올린 제안이 없어요.</p>
+        <Link
+          href="/collab"
+          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-[#4a4d22] dark:border-[#d4d8a8] text-[#4a4d22] dark:text-[#d4d8a8] bg-transparent hover:bg-[#999f54]/5"
+        >
+          <Plus size={14} />
+          새 제안 올리기
+        </Link>
       </div>
     );
   }
