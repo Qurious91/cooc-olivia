@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Heart, Pencil, SlidersHorizontal, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Heart, Pencil, Plus, SlidersHorizontal, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -73,6 +73,12 @@ export default function ExploreContent() {
   const [conditionFilter, setConditionFilter] = useState<string | null>(null);
   const [conditionOpen, setConditionOpen] = useState(false);
   const conditionRef = useRef<HTMLDivElement>(null);
+  const [kindFilter, setKindFilter] = useState<string | null>(null);
+  const [kindOpen, setKindOpen] = useState(false);
+  const kindRef = useRef<HTMLDivElement>(null);
+  const [criteriaFilter, setCriteriaFilter] = useState<string | null>(null);
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
+  const criteriaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!expertOpen) return;
@@ -101,6 +107,25 @@ export default function ExploreContent() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [conditionOpen]);
+
+  useEffect(() => {
+    if (!kindOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!kindRef.current?.contains(e.target as Node)) setKindOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [kindOpen]);
+
+  useEffect(() => {
+    if (!criteriaOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!criteriaRef.current?.contains(e.target as Node))
+        setCriteriaOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [criteriaOpen]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -338,7 +363,7 @@ export default function ExploreContent() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-surface">
-      <header className="sticky top-0 z-10 bg-surface border-b border-black/10 dark:border-white/10 flex items-center gap-1.5 px-3 py-1.5">
+      <header className="sticky top-0 z-10 bg-surface border-b border-black/10 dark:border-white/10 flex items-center gap-1.5 px-3 py-2.5">
         <Link
           href="/home"
           aria-label="뒤로"
@@ -346,32 +371,172 @@ export default function ExploreContent() {
         >
           <ArrowLeft size={16} />
         </Link>
-        <h1 className="text-[13px] font-semibold text-text-1">어떤 협업을 원하시나요?</h1>
+        <h1 className="text-sm font-semibold text-text-1">어떤 협업을 원하시나요?</h1>
+        <button
+          type="button"
+          className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#999f54] text-[#F2F0DC] hover:opacity-90 shrink-0"
+        >
+          <Plus size={14} />
+          새 협업
+        </button>
       </header>
 
-      <div className="sticky top-[36px] z-10 bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2 overflow-x-auto">
-        <div className="flex gap-1.5 w-max">
-          {HOME_CATEGORIES.map(({ Icon, label }) => {
-            const active = label === kind;
-            return (
+      <div className="relative z-20 bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div ref={kindRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setKindOpen((v) => !v)}
+              aria-expanded={kindOpen}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap border bg-surface text-text-4 border-black/15 dark:border-white/15"
+            >
+              <SlidersHorizontal size={14} />
+              종류
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${kindOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {kindOpen && (
+              <div className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKindFilter(null);
+                    setKindOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <span>전체보기</span>
+                  {kindFilter === null && (
+                    <Check size={12} className="text-[#999f54]" />
+                  )}
+                </button>
+                {["게스트 초청", "메뉴 개발", "팝업 행사", "컨설팅"].map(
+                  (label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        setKindFilter(label);
+                        setKindOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      <span>{label}</span>
+                      {kindFilter === label && (
+                        <Check size={12} className="text-[#999f54]" />
+                      )}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+          <div ref={criteriaRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setCriteriaOpen((v) => !v)}
+              aria-expanded={criteriaOpen}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap border bg-surface text-text-4 border-black/15 dark:border-white/15"
+            >
+              <SlidersHorizontal size={14} />
+              조건
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${criteriaOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {criteriaOpen && (
+              <div className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-lg overflow-hidden z-30">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCriteriaFilter(null);
+                    setCriteriaOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <span>전체보기</span>
+                  {criteriaFilter === null && (
+                    <Check size={12} className="text-[#999f54]" />
+                  )}
+                </button>
+                {["전문가", "바텐더", "소믈리에", "한식", "프렌치", "자격증"].map(
+                  (label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        setCriteriaFilter(label);
+                        setCriteriaOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-2 hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      <span>{label}</span>
+                      {criteriaFilter === label && (
+                        <Check size={12} className="text-[#999f54]" />
+                      )}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+          {kindFilter && (
+            <span className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54] shrink-0">
+              {kindFilter}
               <button
-                key={label}
-                onClick={() => setKind(label as CollabKind)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${
-                  active
-                    ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
-                    : "bg-surface text-text-4 border-black/15 dark:border-white/15"
-                }`}
+                type="button"
+                onClick={() => setKindFilter(null)}
+                aria-label={`${kindFilter} 선택 해제`}
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
               >
-                <Icon size={14} />
-                {label}
+                <X size={10} />
               </button>
-            );
-          })}
+            </span>
+          )}
+          {criteriaFilter && (
+            <span className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54] shrink-0">
+              {criteriaFilter}
+              <button
+                type="button"
+                onClick={() => setCriteriaFilter(null)}
+                aria-label={`${criteriaFilter} 선택 해제`}
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          )}
         </div>
       </div>
 
-      {kind === "게스트 초청" && (
+      {false && (
+        <div className="sticky top-[36px] z-10 bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2 overflow-x-auto">
+          <div className="flex gap-1.5 w-max">
+            {HOME_CATEGORIES.map(({ Icon, label }) => {
+              const active = label === kind;
+              return (
+                <button
+                  key={label}
+                  onClick={() => setKind(label as CollabKind)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${
+                    active
+                      ? "bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                      : "bg-surface text-text-4 border-black/15 dark:border-white/15"
+                  }`}
+                >
+                  <Icon size={14} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {false && kind === "게스트 초청" && (
         <div className="bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
