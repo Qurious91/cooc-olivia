@@ -385,13 +385,13 @@ export default function ExploreContent() {
           <ArrowLeft size={16} />
         </Link>
         <h1 className="text-sm font-semibold text-text-1">어떤 협업을 원하시나요?</h1>
-        <button
-          type="button"
+        <Link
+          href="/collab"
           className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#999f54] text-[#F2F0DC] hover:opacity-90 shrink-0"
         >
           <Plus size={14} />
           새 협업
-        </button>
+        </Link>
       </header>
 
       <div className="relative z-20 bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2">
