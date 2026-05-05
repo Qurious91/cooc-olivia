@@ -1,9 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "COOC",
   description: "CO-CREATION WITH OUR CHEFS",
+};
+
+// Android Chrome에서 소프트 키보드가 올라올 때 레이아웃 viewport(=100dvh)를
+// 함께 줄여서, 채팅 입력창과 최신 메시지가 키보드에 가려지지 않게 한다.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 };
 
 // 세션에 splash를 이미 본 기록이 있으면 <html>에 클래스를 붙여 CSS로 숨긴다.

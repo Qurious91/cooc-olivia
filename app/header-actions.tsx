@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
-import { loadMyChatRooms, type ChatRoomListItem } from "./data/chats";
+import { useUnread } from "./_providers/unread-provider";
 
 type NotifEntry = {
   c: { id: string; title: string; kind: string };
@@ -36,10 +36,10 @@ export default function HeaderActions() {
   const [profile, setProfile] = useState<ProfileLite | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [myCollabIds, setMyCollabIds] = useState<string[]>([]);
-  const [myRoomIds, setMyRoomIds] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<NotifEntry[]>([]);
-  const [chatNotifs, setChatNotifs] = useState<ChatRoomListItem[]>([]);
   const [resultNotifs, setResultNotifs] = useState<ResultNotif[]>([]);
+  const { chatRooms, chatUnreadTotal } = useUnread();
+  const chatNotifs = chatRooms.filter((r) => r.unreadCount > 0);
   const [seenResultIds, setSeenResultIds] = useState<Set<string>>(new Set());
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -68,7 +68,7 @@ export default function HeaderActions() {
       if (!user) return;
       setUserId(user.id);
 
-      const [profileRes, notifRes, myCollabsRes, myRoomsRes, chatRoomsList, resultsRes] =
+      const [profileRes, notifRes, myCollabsRes, resultsRes] =
         await Promise.all([
           supabase
             .from("profiles")
@@ -83,8 +83,6 @@ export default function HeaderActions() {
             .eq("status", "pending")
             .eq("collabs.author_id", user.id),
           supabase.from("collabs").select("id").eq("author_id", user.id),
-          supabase.from("chat_rooms").select("id"),
-          loadMyChatRooms(user.id),
           supabase
             .from("collab_applications")
             .select("id, status, updated_at, collabs!inner(id, title)")
@@ -97,10 +95,6 @@ export default function HeaderActions() {
       if (myCollabsRes.data) {
         setMyCollabIds(myCollabsRes.data.map((c: { id: string }) => c.id));
       }
-      if (myRoomsRes.data) {
-        setMyRoomIds(myRoomsRes.data.map((r: { id: string }) => r.id));
-      }
-      setChatNotifs(chatRoomsList.filter((r) => r.unreadCount > 0));
 
       if (resultsRes.data) {
         setResultNotifs(
@@ -236,54 +230,6 @@ export default function HeaderActions() {
     };
   }, [supabase, userId]);
 
-  // 내 채팅방의 새 메시지/읽음 갱신을 헤더 종 배지에 실시간 반영
-  useEffect(() => {
-    if (!userId) return;
-    const channels = [
-      supabase
-        .channel(`header-chat-msgs:${userId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "chat_messages",
-            ...(myRoomIds.length > 0
-              ? { filter: `room_id=in.(${myRoomIds.join(",")})` }
-              : {}),
-          },
-          async () => {
-            const list = await loadMyChatRooms(userId);
-            setChatNotifs(list.filter((r) => r.unreadCount > 0));
-          },
-        )
-        .subscribe(),
-      supabase
-        .channel(`header-chat-rooms:${userId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "chat_rooms",
-          },
-          async () => {
-            const list = await loadMyChatRooms(userId);
-            setChatNotifs(list.filter((r) => r.unreadCount > 0));
-            // 새 룸 생성/접근 시 myRoomIds도 갱신
-            const { data } = await supabase.from("chat_rooms").select("id");
-            if (data) {
-              setMyRoomIds(data.map((r: { id: string }) => r.id));
-            }
-          },
-        )
-        .subscribe(),
-    ];
-    return () => {
-      for (const c of channels) supabase.removeChannel(c);
-    };
-  }, [supabase, userId, myRoomIds]);
-
   useEffect(() => {
     if (!notifOpen && !userOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -341,7 +287,6 @@ export default function HeaderActions() {
   };
 
   const pending = notifs.reduce((s, e) => s + e.count, 0);
-  const chatUnreadTotal = chatNotifs.reduce((s, r) => s + r.unreadCount, 0);
   const visibleResults = resultNotifs.filter(
     (r) => !seenResultIds.has(r.appId),
   );

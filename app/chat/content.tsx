@@ -134,6 +134,32 @@ export default function ChatContent() {
     });
   }, [messages]);
 
+  // Android에서 키보드가 올라오면 visualViewport가 줄어듦.
+  // 그 시점에 최신 메시지가 입력창에 가려지지 않도록 강제로 스크롤 맨 아래로.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // 키보드가 올라온 후 레이아웃이 안정화될 때까지 기다렸다가 스크롤
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+      setTimeout(() => {
+        el.scrollTop = el.scrollHeight;
+      }, 250);
+    });
+  };
+
   const send = async () => {
     if (!room || !userId) return;
     const text = draft.trim();
@@ -259,6 +285,7 @@ export default function ChatContent() {
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onFocus={scrollToBottom}
           placeholder="메시지 입력"
           className="flex-1 px-3 py-2 rounded-full bg-black/5 dark:bg-white/5 text-base text-text-1 placeholder:text-text-6 focus:outline-none"
         />

@@ -4,9 +4,11 @@ import { Home as HomeIcon, Archive, Plus, MessageCircle, Briefcase, X } from "lu
 import Link from "next/link";
 import { useState } from "react";
 import { PROJECT_TYPES } from "./data/project-types";
+import { useUnread } from "./_providers/unread-provider";
 
 export default function BottomNav() {
   const [createOpen, setCreateOpen] = useState(false);
+  const { chatUnreadTotal } = useUnread();
 
   return (
     <>
@@ -18,7 +20,14 @@ export default function BottomNav() {
             <Plus size={22} />
           </span>
         </button>
-        <Link href="/messages" aria-label="Messages" className="p-2"><MessageCircle size={24} /></Link>
+        <Link href="/messages" aria-label="Messages" className="relative p-2">
+          <MessageCircle size={24} />
+          {chatUnreadTotal > 0 && (
+            <span className="absolute top-0.5 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {chatUnreadTotal > 99 ? "99+" : chatUnreadTotal}
+            </span>
+          )}
+        </Link>
         <Link href="/projects" aria-label="My projects" className="p-2"><Briefcase size={24} /></Link>
       </nav>
 
