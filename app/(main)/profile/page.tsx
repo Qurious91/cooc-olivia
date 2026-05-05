@@ -49,6 +49,29 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import AvatarCropper from "./avatar-cropper";
+import CoocVerifyModal, {
+  countCoocFiles,
+  createCoocFilesState,
+  type CoocFilesState,
+  type CoocFileSlot,
+} from "./cooc-verify-modal";
+
+const COOC_VERIFY_SLOTS: CoocFileSlot[] = [
+  { key: "businessRegistration", label: "사업자등록증" },
+  { key: "powerOfAttorney", label: "위임장" },
+];
+
+const CAREER_VERIFY_SLOTS: CoocFileSlot[] = [
+  { key: "careerCertificate", label: "경력증명서" },
+];
+
+const AWARDS_VERIFY_SLOTS: CoocFileSlot[] = [
+  { key: "awardCertificate", label: "수상경력서" },
+];
+
+const STATS_VERIFY_SLOTS: CoocFileSlot[] = [
+  { key: "academicCertificate", label: "학력인증서" },
+];
 import PhotoUpload from "./photo-upload";
 import Modal from "../../modal";
 import MonthPicker, { formatYm } from "../../month-picker";
@@ -511,10 +534,12 @@ function DatedItemContent<T extends { id: string; title: string; body: string }>
           </div>
         </div>
       ))}
-      <AddItemButton onClick={onAdd} onPointerDown={stop}>
-        {label} 추가
-      </AddItemButton>
-      {extraAction}
+      <div className="space-y-1.5">
+        <AddItemButton onClick={onAdd} onPointerDown={stop}>
+          {label} 추가
+        </AddItemButton>
+        {extraAction}
+      </div>
     </div>
   );
 }
@@ -864,7 +889,9 @@ export default function Profile() {
   };
   const [coocVerified, setCoocVerified] = useState(false);
   const [coocModalOpen, setCoocModalOpen] = useState(false);
-  const [coocFiles, setCoocFiles] = useState<File[]>([]);
+  const [coocFiles, setCoocFiles] = useState<CoocFilesState>(() =>
+    createCoocFilesState(COOC_VERIFY_SLOTS),
+  );
   const [coocNote, setCoocNote] = useState("");
   const [nhisModalOpen, setNhisModalOpen] = useState(false);
   const [nhisProvider, setNhisProvider] = useState<string | null>(null);
@@ -873,8 +900,20 @@ export default function Profile() {
   const [nhisPhone, setNhisPhone] = useState("");
   const [nhisAgree, setNhisAgree] = useState(false);
   const [careerVerifyOpen, setCareerVerifyOpen] = useState(false);
-  const [careerVerifyFiles, setCareerVerifyFiles] = useState<File[]>([]);
+  const [careerVerifyFiles, setCareerVerifyFiles] = useState<CoocFilesState>(
+    () => createCoocFilesState(CAREER_VERIFY_SLOTS),
+  );
   const [careerVerifyNote, setCareerVerifyNote] = useState("");
+  const [awardsVerifyOpen, setAwardsVerifyOpen] = useState(false);
+  const [awardsVerifyFiles, setAwardsVerifyFiles] = useState<CoocFilesState>(
+    () => createCoocFilesState(AWARDS_VERIFY_SLOTS),
+  );
+  const [awardsVerifyNote, setAwardsVerifyNote] = useState("");
+  const [statsVerifyOpen, setStatsVerifyOpen] = useState(false);
+  const [statsVerifyFiles, setStatsVerifyFiles] = useState<CoocFilesState>(
+    () => createCoocFilesState(STATS_VERIFY_SLOTS),
+  );
+  const [statsVerifyNote, setStatsVerifyNote] = useState("");
   const [keywordDraft, setKeywordDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
@@ -894,7 +933,9 @@ export default function Profile() {
       setUserId(user.id);
       const { data: row } = await supabase
         .from("profiles")
-        .select("name, nickname, role, avatar_url, affiliation, job_title, region, keywords")
+        .select(
+          "name, nickname, role, avatar_url, affiliation, job_title, region, keywords, cooc_verified",
+        )
         .eq("id", user.id)
         .single();
       if (row) {
@@ -905,8 +946,8 @@ export default function Profile() {
           avatar_url: row.avatar_url,
           affiliation: row.affiliation,
         });
+        setCoocVerified(Boolean(row.cooc_verified));
         if (row.nickname) setNicknameInput(row.nickname);
-        if (row.name) setNameInput(row.name);
         if (row.role) setRoleInput(row.role);
         if (row.affiliation) setAffiliationInput(row.affiliation);
         setData((d) => ({
@@ -1925,7 +1966,7 @@ export default function Profile() {
                   </button>
                 )}
 
-                {userType === "client" && (
+                {false && userType === "client" && (
                   <button
                     type="button"
                     onClick={() => setBizModalOpen(true)}
@@ -1977,33 +2018,15 @@ export default function Profile() {
                     </span>
                     <span className="flex-1 min-w-0">
                       <span className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold text-text-6">
-                          STEP 3
-                        </span>
                         <span className="text-sm font-medium text-text-2">
                           COOC에 인증하기
                         </span>
-                        <span className="text-[10px] font-semibold text-[#c0392b]">
-                          *필수
-                        </span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                          정책필요
-                        </span>
                       </span>
                       <span className="block mt-0.5 text-[11px] text-text-5">
-                        {coocVerified
-                          ? `서류 ${coocFiles.length}건 제출 완료 — 운영팀 검토 대기`
-                          : "관련 서류를 첨부해 운영팀의 검토를 받아요"}
+                        관련 서류를 첨부해 운영팀의 검토를 받아요
                       </span>
                     </span>
-                    {coocVerified ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4a4d22] dark:text-[#d4d8a8]">
-                        <BadgeCheck size={14} />
-                        제출
-                      </span>
-                    ) : (
-                      <ChevronRight size={16} className="text-text-6" />
-                    )}
+                    <ChevronRight size={16} className="text-text-6" />
                   </button>
                 )}
                 <div>
@@ -2020,20 +2043,22 @@ export default function Profile() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  <label className="flex items-center gap-1 text-xs font-medium text-text-4 mb-1.5">
                     이름
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    placeholder="이름을 입력하세요"
+                    placeholder="여권에 적힌 이름을 그대로 적어주세요"
                     className="w-full px-3 py-2.5 rounded-lg border border-border text-base text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  <label className="flex items-center gap-1 text-xs font-medium text-text-4 mb-1.5">
                     역할
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -2044,8 +2069,9 @@ export default function Profile() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-text-4 mb-1.5">
+                  <label className="flex items-center gap-1 text-xs font-medium text-text-4 mb-1.5">
                     소속
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -2466,27 +2492,26 @@ export default function Profile() {
                 )}
                 extraAction={
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setNhisModalOpen(true)}
-                      className="w-full mt-2 py-2 text-xs text-text-5 border border-dashed border-[#0c8a86]/40 rounded-lg hover:border-[#0c8a86] hover:text-[#0c8a86] inline-flex items-center justify-center gap-1.5"
-                    >
-                      <ShieldCheck size={12} />
-                      4대보험 가입내역으로 자동 추가
-                      <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#0c8a86]/15 text-[#0c8a86] border border-[#0c8a86]/25">
-                        제작중
-                      </span>
-                    </button>
+                    {false && (
+                      <button
+                        type="button"
+                        onClick={() => setNhisModalOpen(true)}
+                        className="w-full mt-2 py-2 text-xs text-text-5 border border-dashed border-[#0c8a86]/40 rounded-lg hover:border-[#0c8a86] hover:text-[#0c8a86] inline-flex items-center justify-center gap-1.5"
+                      >
+                        <ShieldCheck size={12} />
+                        4대보험 가입내역으로 자동 추가
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#0c8a86]/15 text-[#0c8a86] border border-[#0c8a86]/25">
+                          제작중
+                        </span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setCareerVerifyOpen(true)}
-                      className="w-full mt-2 py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] inline-flex items-center justify-center gap-1.5"
+                      className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] inline-flex items-center justify-center gap-1.5"
                     >
                       <Paperclip size={12} />
-                      파일 첨부로 COOC에 인증요청
-                      <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] border border-[#999f54]/25">
-                        제작중
-                      </span>
+                      COOC에 인증요청
                     </button>
                   </>
                 }
@@ -2512,6 +2537,16 @@ export default function Profile() {
                     />
                   </div>
                 )}
+                extraAction={
+                  <button
+                    type="button"
+                    onClick={() => setAwardsVerifyOpen(true)}
+                    className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Paperclip size={12} />
+                    COOC에 인증요청
+                  </button>
+                }
               />
             ) : type.key === "stats" ? (
               <DatedItemContent<Stat>
@@ -2534,6 +2569,16 @@ export default function Profile() {
                     />
                   </div>
                 )}
+                extraAction={
+                  <button
+                    type="button"
+                    onClick={() => setStatsVerifyOpen(true)}
+                    className="w-full py-2 text-xs text-text-5 border border-dashed border-[#999f54]/40 rounded-lg hover:border-[#999f54] hover:text-[#999f54] inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Paperclip size={12} />
+                    COOC에 인증요청
+                  </button>
+                }
               />
             ) : type.key === "photos" ? (
               <PhotosContent
@@ -3157,149 +3202,60 @@ export default function Profile() {
         </div>
       )}
 
-      {coocModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="COOC 인증"
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-        >
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={() => setCoocModalOpen(false)}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          />
-          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
-            <div className="flex items-start gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
-              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#999f54] text-[#F2F0DC] text-[10px] font-bold tracking-wider">
-                COOC
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-1">COOC 인증</p>
-                <p className="text-[11px] text-text-5 mt-0.5">
-                  관련 서류를 제출하면 운영팀이 직접 검토합니다
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCoocModalOpen(false)}
-                aria-label="닫기"
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <CoocVerifyModal
+        open={coocModalOpen}
+        onClose={() => setCoocModalOpen(false)}
+        slots={COOC_VERIFY_SLOTS}
+        files={coocFiles}
+        setFiles={setCoocFiles}
+        note={coocNote}
+        setNote={setCoocNote}
+      />
 
-            <div className="px-5 py-4 space-y-4 overflow-y-auto">
-              <div>
-                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-2">
-                  서류 첨부
-                  <span className="text-[10px] font-semibold text-[#c0392b]">
-                    *필수
-                  </span>
-                </label>
-                <label className="flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-lg border-2 border-dashed border-black/15 dark:border-white/15 cursor-pointer hover:border-[#999f54] hover:bg-[#999f54]/5 text-center">
-                  <Upload size={20} className="text-text-5" />
-                  <span className="text-xs font-medium text-text-3">
-                    클릭해서 파일 선택
-                  </span>
-                  <span className="text-[10px] text-text-6">
-                    사업자등록증·재직증명서·계약서 등 (PDF, JPG, PNG)
-                  </span>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
-                    onChange={(e) => {
-                      const picked = e.target.files
-                        ? Array.from(e.target.files)
-                        : [];
-                      if (picked.length === 0) return;
-                      setCoocFiles((prev) => [...prev, ...picked]);
-                      e.target.value = "";
-                    }}
-                    className="sr-only"
-                  />
-                </label>
-              </div>
+      <CoocVerifyModal
+        open={careerVerifyOpen}
+        onClose={() => setCareerVerifyOpen(false)}
+        slots={CAREER_VERIFY_SLOTS}
+        files={careerVerifyFiles}
+        setFiles={setCareerVerifyFiles}
+        note={careerVerifyNote}
+        setNote={setCareerVerifyNote}
+        title="경력 인증 요청"
+        subtitle="재직·경력 증빙 서류를 제출하면 운영팀이 검토 후 반영해요"
+        submitLabel="인증 요청"
+        notePlaceholder="어떤 경력에 대한 증빙인지, 회사명·기간 등을 알려주세요"
+        footerNote="제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다. 승인되면 해당 경력에 인증 뱃지가 표시됩니다."
+      />
 
-              {coocFiles.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold text-text-5 mb-2">
-                    첨부된 파일 ({coocFiles.length})
-                  </p>
-                  <ul className="rounded-lg border border-border divide-y divide-black/5 dark:divide-white/10 overflow-hidden">
-                    {coocFiles.map((f, idx) => (
-                      <li
-                        key={`${f.name}-${idx}`}
-                        className="flex items-center gap-2 px-3 py-2"
-                      >
-                        <Paperclip size={14} className="text-text-5 shrink-0" />
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-[12px] text-text-2 truncate">
-                            {f.name}
-                          </span>
-                          <span className="block text-[10px] text-text-6">
-                            {(f.size / 1024).toFixed(1)} KB
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCoocFiles((prev) =>
-                              prev.filter((_, i) => i !== idx),
-                            )
-                          }
-                          aria-label="삭제"
-                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-5 hover:text-[#c0392b]"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+      <CoocVerifyModal
+        open={awardsVerifyOpen}
+        onClose={() => setAwardsVerifyOpen(false)}
+        slots={AWARDS_VERIFY_SLOTS}
+        files={awardsVerifyFiles}
+        setFiles={setAwardsVerifyFiles}
+        note={awardsVerifyNote}
+        setNote={setAwardsVerifyNote}
+        title="수상 인증 요청"
+        subtitle="수상 증빙 서류를 제출하면 운영팀이 검토 후 반영해요"
+        submitLabel="인증 요청"
+        notePlaceholder="어떤 수상에 대한 증빙인지, 시상기관·연도 등을 알려주세요"
+        footerNote="제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다. 승인되면 해당 수상에 인증 뱃지가 표시됩니다."
+      />
 
-              <div>
-                <label className="block text-xs font-medium text-text-4 mb-1.5">
-                  참고 메모 (선택)
-                </label>
-                <textarea
-                  value={coocNote}
-                  onChange={(e) => setCoocNote(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent resize-none"
-                  placeholder="운영팀이 알아두면 좋은 사항이 있다면 적어주세요"
-                />
-              </div>
-
-              <p className="text-[11px] text-text-5 leading-relaxed">
-                제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다.
-              </p>
-            </div>
-
-            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
-              <button
-                type="button"
-                disabled
-                title="준비중"
-                className="w-full py-3 rounded-xl bg-[#999f54] text-[#F2F0DC] text-sm font-semibold opacity-40 cursor-not-allowed"
-              >
-                제출하기
-              </button>
-              <button
-                type="button"
-                onClick={() => setCoocModalOpen(false)}
-                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CoocVerifyModal
+        open={statsVerifyOpen}
+        onClose={() => setStatsVerifyOpen(false)}
+        slots={STATS_VERIFY_SLOTS}
+        files={statsVerifyFiles}
+        setFiles={setStatsVerifyFiles}
+        note={statsVerifyNote}
+        setNote={setStatsVerifyNote}
+        title="학력 인증 요청"
+        subtitle="학력 증빙 서류를 제출하면 운영팀이 검토 후 반영해요"
+        submitLabel="인증 요청"
+        notePlaceholder="어떤 학력에 대한 증빙인지, 학교명·졸업연도 등을 알려주세요"
+        footerNote="제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다. 승인되면 해당 학력에 인증 뱃지가 표시됩니다."
+      />
 
       {nhisModalOpen && (
         <div
@@ -3475,152 +3431,6 @@ export default function Profile() {
         </div>
       )}
 
-      {careerVerifyOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="경력 인증 — COOC 운영팀 검토"
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-        >
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={() => setCareerVerifyOpen(false)}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          />
-          <div className="relative w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden max-h-[90dvh] flex flex-col">
-            <div className="flex items-start gap-2.5 px-5 py-4 border-b border-black/5 dark:border-white/5">
-              <span className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#999f54] text-[#F2F0DC] text-[10px] font-bold tracking-wider">
-                COOC
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-1">
-                  경력 인증 요청
-                </p>
-                <p className="text-[11px] text-text-5 mt-0.5">
-                  재직·경력 증빙 서류를 제출하면 운영팀이 검토 후 반영해요
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCareerVerifyOpen(false)}
-                aria-label="닫기"
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-5"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-4 overflow-y-auto">
-              <div>
-                <label className="flex items-center gap-1.5 text-xs font-medium text-text-4 mb-2">
-                  서류 첨부
-                  <span className="text-[10px] font-semibold text-[#c0392b]">
-                    *필수
-                  </span>
-                </label>
-                <label className="flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-lg border-2 border-dashed border-black/15 dark:border-white/15 cursor-pointer hover:border-[#999f54] hover:bg-[#999f54]/5 text-center">
-                  <Upload size={20} className="text-text-5" />
-                  <span className="text-xs font-medium text-text-3">
-                    클릭해서 파일 선택
-                  </span>
-                  <span className="text-[10px] text-text-6">
-                    재직증명서·경력증명서·계약서 등 (PDF, JPG, PNG)
-                  </span>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
-                    onChange={(e) => {
-                      const picked = e.target.files
-                        ? Array.from(e.target.files)
-                        : [];
-                      if (picked.length === 0) return;
-                      setCareerVerifyFiles((prev) => [...prev, ...picked]);
-                      e.target.value = "";
-                    }}
-                    className="sr-only"
-                  />
-                </label>
-              </div>
-
-              {careerVerifyFiles.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold text-text-5 mb-2">
-                    첨부된 파일 ({careerVerifyFiles.length})
-                  </p>
-                  <ul className="rounded-lg border border-border divide-y divide-black/5 dark:divide-white/10 overflow-hidden">
-                    {careerVerifyFiles.map((f, idx) => (
-                      <li
-                        key={`${f.name}-${idx}`}
-                        className="flex items-center gap-2 px-3 py-2"
-                      >
-                        <Paperclip size={14} className="text-text-5 shrink-0" />
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-[12px] text-text-2 truncate">
-                            {f.name}
-                          </span>
-                          <span className="block text-[10px] text-text-6">
-                            {(f.size / 1024).toFixed(1)} KB
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCareerVerifyFiles((prev) =>
-                              prev.filter((_, i) => i !== idx),
-                            )
-                          }
-                          aria-label="삭제"
-                          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-5 hover:text-[#c0392b]"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-text-4 mb-1.5">
-                  참고 메모 (선택)
-                </label>
-                <textarea
-                  value={careerVerifyNote}
-                  onChange={(e) => setCareerVerifyNote(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-text-1 placeholder:text-text-6 focus:outline-none focus:border-[#999f54] bg-transparent resize-none"
-                  placeholder="어떤 경력에 대한 증빙인지, 회사명·기간 등을 알려주세요"
-                />
-              </div>
-
-              <p className="text-[11px] text-text-5 leading-relaxed">
-                제출 후 영업일 기준 1~2일 내 검토 결과를 이메일로 안내드립니다.
-                승인되면 해당 경력에 인증 뱃지가 표시됩니다.
-              </p>
-            </div>
-
-            <div className="px-5 py-4 border-t border-black/5 dark:border-white/5 space-y-2">
-              <button
-                type="button"
-                disabled
-                title="준비중"
-                className="w-full py-3 rounded-xl bg-[#999f54] text-[#F2F0DC] text-sm font-semibold opacity-40 cursor-not-allowed"
-              >
-                인증 요청
-              </button>
-              <button
-                type="button"
-                onClick={() => setCareerVerifyOpen(false)}
-                className="w-full py-2 text-xs text-text-5 hover:text-text-3"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -395,7 +395,7 @@ export default function ExploreContent() {
       </header>
 
       <div className="relative z-20 bg-surface border-b border-black/5 dark:border-white/5 px-3 py-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5">
           <div ref={kindRef} className="relative shrink-0">
             <button
               type="button"
@@ -484,43 +484,51 @@ export default function ExploreContent() {
               </div>
             )}
           </div>
+          {(kindFilters.length > 0 || criteriaFilters.length > 0) && (
+            <>
+              <span
+                aria-hidden
+                className="shrink-0 self-center text-text-6 text-[12px] select-none px-0.5"
+              >
+                |
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 flex-1 -mx-1 px-1">
+                {kindFilters.map((label) => (
+                  <span
+                    key={`k-${label}`}
+                    className="shrink-0 inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                  >
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => toggleKind(label)}
+                      aria-label={`${label} 선택 해제`}
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+                {criteriaFilters.map((label) => (
+                  <span
+                    key={`c-${label}`}
+                    className="shrink-0 inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
+                  >
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => toggleCriteria(label)}
+                      aria-label={`${label} 선택 해제`}
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
-        {(kindFilters.length > 0 || criteriaFilters.length > 0) && (
-          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-            {kindFilters.map((label) => (
-              <span
-                key={`k-${label}`}
-                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
-              >
-                {label}
-                <button
-                  type="button"
-                  onClick={() => toggleKind(label)}
-                  aria-label={`${label} 선택 해제`}
-                  className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
-                >
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
-            {criteriaFilters.map((label) => (
-              <span
-                key={`c-${label}`}
-                className="inline-flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-full text-[11px] whitespace-nowrap border bg-[#999f54] text-[#F2F0DC] border-[#999f54]"
-              >
-                {label}
-                <button
-                  type="button"
-                  onClick={() => toggleCriteria(label)}
-                  aria-label={`${label} 선택 해제`}
-                  className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-white/20"
-                >
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {false && (

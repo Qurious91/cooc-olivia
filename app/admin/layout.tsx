@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             admin
           </span>
         </Link>
-        <AdminSearch className="flex-1 min-w-0 max-w-xl min-[1100px]:ml-auto" />
+        <AdminSearch className="flex-1 min-w-0 min-[1100px]:max-w-xl min-[1100px]:ml-auto" />
         <AdminMobileMenu />
       </header>
       <div className="flex flex-1">
