@@ -241,7 +241,17 @@ export default function ExploreContent() {
     if (!id) return;
     setRemoveTarget(null);
     const supabase = createClient();
-    await supabase.from("collabs").delete().eq("id", id);
+    const { error } = await supabase.from("collabs").delete().eq("id", id);
+    if (error) {
+      console.error(
+        "[explore] delete failed",
+        error.message,
+        error.details,
+        error.hint,
+        error.code,
+      );
+      return;
+    }
     setDbRows((prev) => prev.filter((r) => r.id !== id));
   };
 

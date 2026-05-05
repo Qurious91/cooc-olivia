@@ -181,7 +181,17 @@ export default function LikedList() {
 
   const onDelete = async (id: string) => {
     const supabase = createClient();
-    await supabase.from("collabs").delete().eq("id", id);
+    const { error } = await supabase.from("collabs").delete().eq("id", id);
+    if (error) {
+      console.error(
+        "[liked-card] delete failed",
+        error.message,
+        error.details,
+        error.hint,
+        error.code,
+      );
+      return;
+    }
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 

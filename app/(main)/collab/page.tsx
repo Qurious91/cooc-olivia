@@ -126,6 +126,7 @@ function NewCollab() {
   >([]);
   const [removedPhotoIds, setRemovedPhotoIds] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const addedKeys = OPTIONAL_FIELDS.filter((f) => f.key in extras);
   const availableFields = OPTIONAL_FIELDS.filter((f) => !(f.key in extras));
@@ -157,90 +158,95 @@ function NewCollab() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
     const kindKey = kinds.find((k) => k.label === kind)?.key;
     if (!kindKey) return;
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    const periodCols = periodToColumns(period.trim());
-    const payload = {
-      kind: kindKey,
-      author: AUTHOR_MODE,
-      title: title.trim(),
-      description: desc.trim(),
-      ...periodCols,
-      location: location.trim(),
-    };
-    let collabId = editId ?? null;
-    if (isEdit && editId) {
-      const { error } = await supabase
-        .from("collabs")
-        .update(payload)
-        .eq("id", editId);
-      if (error) return;
-    } else {
-      const { data: inserted, error } = await supabase
-        .from("collabs")
-        .insert({ author_id: user.id, ...payload })
-        .select("id")
-        .single();
-      if (error || !inserted) return;
-      collabId = inserted.id as string;
-    }
-
-    if (!collabId) {
-      router.push("/projects");
-      return;
-    }
-
-    // 1) 삭제 표시된 기존 사진들 DB에서 제거 (storage 객체는 분리된 정리 작업으로 처리)
-    if (removedPhotoIds.size > 0) {
-      await supabase
-        .from("collab_photos")
-        .delete()
-        .in("id", [...removedPhotoIds]);
-    }
-
-    // 2) 새로 첨부된 파일 storage 업로드 + collab_photos insert
-    if (collabPhotos.length > 0) {
-      const remainingExistingCount = existingPhotos.filter(
-        (p) => !removedPhotoIds.has(p.id),
-      ).length;
-      const uploadedUrls = await Promise.all(
-        collabPhotos.map(async (file) => {
-          const ext = file.name.split(".").pop() || "bin";
-          const filename = `${crypto.randomUUID()}.${ext}`;
-          const path = `${user.id}/${collabId}/${filename}`;
-          const { error: uploadError } = await supabase.storage
-            .from("collab")
-            .upload(path, file, { upsert: false });
-          if (uploadError) return null;
-          const { data: pub } = supabase.storage
-            .from("collab")
-            .getPublicUrl(path);
-          return pub.publicUrl;
-        }),
-      );
-      const insertRows = uploadedUrls
-        .map((url, i) =>
-          url
-            ? {
-                collab_id: collabId,
-                image_url: url,
-                position: remainingExistingCount + i,
-              }
-            : null,
-        )
-        .filter((r): r is NonNullable<typeof r> => !!r);
-      if (insertRows.length > 0) {
-        await supabase.from("collab_photos").insert(insertRows);
+    setSubmitting(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const periodCols = periodToColumns(period.trim());
+      const payload = {
+        kind: kindKey,
+        author: AUTHOR_MODE,
+        title: title.trim(),
+        description: desc.trim(),
+        ...periodCols,
+        location: location.trim(),
+      };
+      let collabId = editId ?? null;
+      if (isEdit && editId) {
+        const { error } = await supabase
+          .from("collabs")
+          .update(payload)
+          .eq("id", editId);
+        if (error) return;
+      } else {
+        const { data: inserted, error } = await supabase
+          .from("collabs")
+          .insert({ author_id: user.id, ...payload })
+          .select("id")
+          .single();
+        if (error || !inserted) return;
+        collabId = inserted.id as string;
       }
-    }
 
-    router.push("/projects");
+      if (!collabId) {
+        router.push("/projects");
+        return;
+      }
+
+      // 1) 삭제 표시된 기존 사진들 DB에서 제거 (storage 객체는 분리된 정리 작업으로 처리)
+      if (removedPhotoIds.size > 0) {
+        await supabase
+          .from("collab_photos")
+          .delete()
+          .in("id", [...removedPhotoIds]);
+      }
+
+      // 2) 새로 첨부된 파일 storage 업로드 + collab_photos insert
+      if (collabPhotos.length > 0) {
+        const remainingExistingCount = existingPhotos.filter(
+          (p) => !removedPhotoIds.has(p.id),
+        ).length;
+        const uploadedUrls = await Promise.all(
+          collabPhotos.map(async (file) => {
+            const ext = file.name.split(".").pop() || "bin";
+            const filename = `${crypto.randomUUID()}.${ext}`;
+            const path = `${user.id}/${collabId}/${filename}`;
+            const { error: uploadError } = await supabase.storage
+              .from("collab")
+              .upload(path, file, { upsert: false });
+            if (uploadError) return null;
+            const { data: pub } = supabase.storage
+              .from("collab")
+              .getPublicUrl(path);
+            return pub.publicUrl;
+          }),
+        );
+        const insertRows = uploadedUrls
+          .map((url, i) =>
+            url
+              ? {
+                  collab_id: collabId,
+                  image_url: url,
+                  position: remainingExistingCount + i,
+                }
+              : null,
+          )
+          .filter((r): r is NonNullable<typeof r> => !!r);
+        if (insertRows.length > 0) {
+          await supabase.from("collab_photos").insert(insertRows);
+        }
+      }
+
+      router.push("/projects");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -496,10 +502,16 @@ function NewCollab() {
             </button>
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               className="flex-[2] py-2.5 rounded-lg bg-[#999f54] text-[#F2F0DC] text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isEdit ? "수정하기" : "등록하기"}
+              {submitting
+                ? isEdit
+                  ? "수정 중..."
+                  : "등록 중..."
+                : isEdit
+                  ? "수정하기"
+                  : "등록하기"}
             </button>
           </div>
 

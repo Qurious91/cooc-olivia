@@ -1884,44 +1884,46 @@ export default function Profile() {
                     의뢰자
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIdentityModalOpen(true)}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-border hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-left"
-                >
-                  <span className="w-9 h-9 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
-                    <ShieldCheck size={18} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold text-text-6">
-                        STEP 1
+                {false && (
+                  <button
+                    type="button"
+                    onClick={() => setIdentityModalOpen(true)}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-border hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-left"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#999f54]/15 dark:bg-[#999f54]/25 text-[#4a4d22] dark:text-[#d4d8a8] inline-flex items-center justify-center">
+                      <ShieldCheck size={18} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-text-6">
+                          STEP 1
+                        </span>
+                        <span className="text-sm font-medium text-text-2">
+                          {userType === "expert" ? "실명인증" : "담당자 실명인증"}
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#c0392b]">
+                          *필수
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                          논의필요
+                        </span>
                       </span>
-                      <span className="text-sm font-medium text-text-2">
-                        {userType === "expert" ? "실명인증" : "담당자 실명인증"}
-                      </span>
-                      <span className="text-[10px] font-semibold text-[#c0392b]">
-                        *필수
-                      </span>
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
-                        논의필요
+                      <span className="block mt-0.5 text-[11px] text-text-5">
+                        {identityVerified
+                          ? "본인 확인 완료"
+                          : "휴대폰으로 본인 확인을 진행해요"}
                       </span>
                     </span>
-                    <span className="block mt-0.5 text-[11px] text-text-5">
-                      {identityVerified
-                        ? "본인 확인 완료"
-                        : "휴대폰으로 본인 확인을 진행해요"}
-                    </span>
-                  </span>
-                  {identityVerified ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4a4d22] dark:text-[#d4d8a8]">
-                      <BadgeCheck size={14} />
-                      완료
-                    </span>
-                  ) : (
-                    <ChevronRight size={16} className="text-text-6" />
-                  )}
-                </button>
+                    {identityVerified ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4a4d22] dark:text-[#d4d8a8]">
+                        <BadgeCheck size={14} />
+                        완료
+                      </span>
+                    ) : (
+                      <ChevronRight size={16} className="text-text-6" />
+                    )}
+                  </button>
+                )}
 
                 {userType === "client" && (
                   <button
