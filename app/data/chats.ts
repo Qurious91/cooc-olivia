@@ -8,9 +8,41 @@ export type ChatMessageRow = {
   id: string;
   room_id: string;
   sender_id: string;
-  text: string;
+  text: string | null;
+  image_path: string | null;
+  image_width: number | null;
+  image_height: number | null;
   created_at: string;
+  /** 클라이언트 전용: image_path로 발급한 signed URL. DB 컬럼이 아님. */
+  image_url?: string | null;
 };
+
+const MESSAGE_SELECT =
+  "id, room_id, sender_id, text, image_path, image_width, image_height, created_at";
+
+// signed URL 유효 시간 (초). 만료돼도 이미 렌더된 <img>는 유지됨.
+const SIGNED_URL_TTL = 60 * 60;
+
+/** 사진 메시지들에 signed URL을 한꺼번에 발급해 image_url 필드를 채운다. */
+async function attachSignedUrls(
+  supabase: ReturnType<typeof createClient>,
+  rows: ChatMessageRow[],
+): Promise<void> {
+  const paths = rows
+    .map((r) => r.image_path)
+    .filter((p): p is string => !!p);
+  if (paths.length === 0) return;
+  const { data } = await supabase.storage
+    .from("chat")
+    .createSignedUrls(paths, SIGNED_URL_TTL);
+  const urlByPath = new Map<string, string>();
+  (data ?? []).forEach((item, i) => {
+    if (item?.signedUrl) urlByPath.set(paths[i], item.signedUrl);
+  });
+  for (const r of rows) {
+    if (r.image_path) r.image_url = urlByPath.get(r.image_path) ?? null;
+  }
+}
 
 export type ChatRoomRow = {
   id: string;
@@ -70,10 +102,67 @@ export async function loadChatMessages(
   const supabase = createClient();
   const { data } = await supabase
     .from("chat_messages")
-    .select("id, room_id, sender_id, text, created_at")
+    .select(MESSAGE_SELECT)
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
-  return (data ?? []) as ChatMessageRow[];
+  const rows = (data ?? []) as ChatMessageRow[];
+  await attachSignedUrls(supabase, rows);
+  return rows;
+}
+
+/** 사진 파일을 'chat' 버킷에 업로드하고 storage 경로와 signed URL을 반환. */
+export async function uploadChatImage(
+  roomId: string,
+  file: Blob,
+): Promise<{ path: string; signedUrl: string } | null> {
+  const supabase = createClient();
+  const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+  const path = `${roomId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("chat")
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+  if (error) return null;
+  const { data } = await supabase.storage
+    .from("chat")
+    .createSignedUrl(path, SIGNED_URL_TTL);
+  if (!data?.signedUrl) return null;
+  return { path, signedUrl: data.signedUrl };
+}
+
+/** 업로드된 사진 경로로 사진 메시지를 전송. */
+export async function sendChatImageMessage(
+  roomId: string,
+  senderId: string,
+  image: { path: string; width: number; height: number },
+): Promise<ChatMessageRow | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({
+      room_id: roomId,
+      sender_id: senderId,
+      image_path: image.path,
+      image_width: image.width || null,
+      image_height: image.height || null,
+    })
+    .select(MESSAGE_SELECT)
+    .single();
+  if (error || !data) return null;
+  return data as ChatMessageRow;
+}
+
+/** 단일 사진 경로에 signed URL 발급 (realtime으로 받은 메시지용). */
+export async function signChatImagePath(
+  path: string,
+): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase.storage
+    .from("chat")
+    .createSignedUrl(path, SIGNED_URL_TTL);
+  return data?.signedUrl ?? null;
 }
 
 /**
@@ -90,7 +179,7 @@ export async function sendChatMessage(
   const { data, error } = await supabase
     .from("chat_messages")
     .insert({ room_id: roomId, sender_id: senderId, text: trimmed })
-    .select("id, room_id, sender_id, text, created_at")
+    .select(MESSAGE_SELECT)
     .single();
   if (error || !data) return null;
   return data as ChatMessageRow;
@@ -165,13 +254,14 @@ export async function loadMyChatRooms(
   // 2. 마지막 메시지들을 한꺼번에 fetch
   const { data: lastMessages } = await supabase
     .from("chat_messages")
-    .select("room_id, text, created_at")
+    .select("room_id, text, image_path, created_at")
     .in("room_id", roomIds)
     .order("created_at", { ascending: false });
   const lastByRoom = new Map<string, { text: string; created_at: string }>();
   for (const m of (lastMessages ?? []) as any[]) {
     if (!lastByRoom.has(m.room_id)) {
-      lastByRoom.set(m.room_id, { text: m.text, created_at: m.created_at });
+      const preview = m.text?.trim() || (m.image_path ? "사진" : "");
+      lastByRoom.set(m.room_id, { text: preview, created_at: m.created_at });
     }
   }
 

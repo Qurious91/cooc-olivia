@@ -1,14 +1,18 @@
 "use client";
 
-import { ArrowLeft, Send, User } from "lucide-react";
+import { ArrowLeft, ImagePlus, Send, User } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import imageCompression from "browser-image-compression";
 import {
   type ChatMessageRow,
   loadChatMessages,
   markChatRead,
+  sendChatImageMessage,
   sendChatMessage,
+  signChatImagePath,
+  uploadChatImage,
 } from "../data/chats";
 import { createClient } from "@/lib/supabase/client";
 
@@ -27,6 +31,25 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+// 압축된 이미지의 실제 픽셀 크기 — 말풍선 레이아웃 시프트 방지용.
+function readImageSize(
+  file: Blob,
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: 0, height: 0 });
+    };
+    img.src = url;
   });
 }
 
@@ -113,10 +136,17 @@ export default function ChatContent() {
         },
         (payload) => {
           const newMsg = payload.new as ChatMessageRow;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
+          const append = (msg: ChatMessageRow) =>
+            setMessages((prev) =>
+              prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
+            );
+          if (newMsg.image_path) {
+            void signChatImagePath(newMsg.image_path).then((url) =>
+              append({ ...newMsg, image_url: url }),
+            );
+          } else {
+            append(newMsg);
+          }
           void markChatRead(roomId, userId);
         },
       )
@@ -158,6 +188,40 @@ export default function ChatContent() {
         el.scrollTop = el.scrollHeight;
       }, 250);
     });
+  };
+
+  const onPickImage = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (!file || !room || !userId || sending) return;
+    if (!file.type.startsWith("image/")) return;
+    setSending(true);
+    try {
+      const compressed = await imageCompression(file, {
+        maxWidthOrHeight: 1600,
+        maxSizeMB: 0.6,
+        useWebWorker: true,
+      });
+      const { width, height } = await readImageSize(compressed);
+      const uploaded = await uploadChatImage(room.id, compressed);
+      if (uploaded) {
+        const sent = await sendChatImageMessage(room.id, userId, {
+          path: uploaded.path,
+          width,
+          height,
+        });
+        if (sent) {
+          sent.image_url = uploaded.signedUrl;
+          setMessages((prev) =>
+            prev.some((m) => m.id === sent.id) ? prev : [...prev, sent],
+          );
+        }
+      }
+    } catch {
+      // 압축/업로드 실패 — 조용히 무시 (사용자가 재시도 가능)
+    } finally {
+      setSending(false);
+    }
   };
 
   const send = async () => {
@@ -249,6 +313,11 @@ export default function ChatContent() {
         )}
         {messages.map((m) => {
           const mine = m.sender_id === userId;
+          const hasImage = !!m.image_path;
+          const aspect =
+            m.image_width && m.image_height
+              ? `${m.image_width} / ${m.image_height}`
+              : undefined;
           return (
             <div
               key={m.id}
@@ -257,15 +326,41 @@ export default function ChatContent() {
               <div
                 className={`max-w-[78%] ${mine ? "text-right" : "text-left"}`}
               >
-                <div
-                  className={`inline-block px-3 py-2 rounded-2xl text-base whitespace-pre-wrap break-words ${
-                    mine
-                      ? "bg-[#999f54] text-[#F2F0DC] rounded-br-sm"
-                      : "bg-black/5 dark:bg-white/5 text-text-1 rounded-bl-sm"
-                  }`}
-                >
-                  {m.text}
-                </div>
+                {hasImage &&
+                  (m.image_url ? (
+                    <a
+                      href={m.image_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={m.image_url}
+                        alt="첨부된 사진"
+                        style={{ aspectRatio: aspect }}
+                        className="rounded-2xl max-w-[220px] max-h-[300px] object-cover"
+                      />
+                    </a>
+                  ) : (
+                    <div
+                      style={{ aspectRatio: aspect ?? "1 / 1" }}
+                      className="w-[180px] max-w-[220px] rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center text-[11px] text-text-6"
+                    >
+                      사진 불러오는 중…
+                    </div>
+                  ))}
+                {m.text && (
+                  <div
+                    className={`inline-block px-3 py-2 rounded-2xl text-base whitespace-pre-wrap break-words ${
+                      mine
+                        ? "bg-[#999f54] text-[#F2F0DC] rounded-br-sm"
+                        : "bg-black/5 dark:bg-white/5 text-text-1 rounded-bl-sm"
+                    } ${hasImage ? "mt-1" : ""}`}
+                  >
+                    {m.text}
+                  </div>
+                )}
                 <div className="text-[10px] text-text-6 mt-1">
                   {fmtTime(m.created_at)}
                 </div>
@@ -282,6 +377,21 @@ export default function ChatContent() {
         }}
         className="bg-surface border-t border-black/10 dark:border-white/10 px-3 py-2.5 flex items-center gap-2 max-w-xl w-full mx-auto shrink-0"
       >
+        <label
+          aria-label="사진 첨부"
+          className={`p-2 rounded-full text-text-5 shrink-0 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 ${
+            sending ? "opacity-40 pointer-events-none" : ""
+          }`}
+        >
+          <ImagePlus size={20} />
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onPickImage}
+            disabled={sending}
+          />
+        </label>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
