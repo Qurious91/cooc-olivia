@@ -2,6 +2,7 @@
 
 import { Home as HomeIcon, Archive, Plus, MessageCircle, Briefcase, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { PROJECT_TYPES } from "./data/project-types";
 import { useUnread } from "./_providers/unread-provider";
@@ -9,18 +10,22 @@ import { useUnread } from "./_providers/unread-provider";
 export default function BottomNav() {
   const [createOpen, setCreateOpen] = useState(false);
   const { chatUnreadTotal } = useUnread();
+  const pathname = usePathname();
+
+  const tabClass = (href: string) =>
+    `p-2 ${pathname?.startsWith(href) ? "text-[#bcc46a] dark:text-[#999f54]" : ""}`;
 
   return (
     <>
       <nav className="min-[1100px]:hidden fixed bottom-0 inset-x-0 h-16 bg-background border-t border-border flex items-center justify-around text-text-6 z-30">
-        <Link href="/home" aria-label="Home" className="p-2"><HomeIcon size={24} /></Link>
-        <Link href="/archive" aria-label="Archive" className="p-2"><Archive size={24} /></Link>
+        <Link href="/home" aria-label="Home" className={tabClass("/home")}><HomeIcon size={24} /></Link>
+        <Link href="/archive" aria-label="Archive" className={tabClass("/archive")}><Archive size={24} /></Link>
         <button aria-label="Create" className="p-2" onClick={() => setCreateOpen(true)}>
           <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black text-white">
             <Plus size={22} />
           </span>
         </button>
-        <Link href="/messages" aria-label="Messages" className="relative p-2">
+        <Link href="/messages" aria-label="Messages" className={`relative ${tabClass("/messages")}`}>
           <MessageCircle size={24} />
           {chatUnreadTotal > 0 && (
             <span className="absolute top-0.5 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
@@ -28,7 +33,7 @@ export default function BottomNav() {
             </span>
           )}
         </Link>
-        <Link href="/projects" aria-label="My projects" className="p-2"><Briefcase size={24} /></Link>
+        <Link href="/projects" aria-label="My projects" className={tabClass("/projects")}><Briefcase size={24} /></Link>
       </nav>
 
       {createOpen && (
